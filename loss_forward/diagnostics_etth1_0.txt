@@ -1,0 +1,48 @@
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: 1.0000 | std: 0.0000 | abs_mean: 1.0000
+Direction -> min/max: 1.0000 / 1.0000
+Route Probabilities:
+  Neutral -> mean: 0.0000 | std: 0.0000
+  Forward -> mean: 1.0000 | std: 0.0000
+  Reverse -> mean: 0.0000 | std: 0.0000
+Route Confidence -> max_prob mean: 1.0000 | std: 0.0000
+Uncertain ratio  -> max_prob < 0.45: 0.00%
+Route Argmax Ratios:
+  Neutral: 0.00% | Forward: 100.00% | Reverse: 0.00%
+--------------------------------------------------
+Strength  -> mean: 1.0000 | std: 0.0000 | min/max: 1.0000 / 1.0000
+Strength ratios -> Active(>0.5): 100.00% | Weak(<0.1): 0.00% | Mid: 0.00%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: 1.0000 | std: 0.0000 | abs_mean: 1.0000
+Eff_Dir   -> min/max: 1.0000 / 1.0000
+Eff_Dir ratios -> Positive(>0.05): 100.00%
+                  Negative(<-0.05): 0.00%
+                  Near Zero(<=0.05): 0.00%
+Scale     -> mean: 1.0068 | std: 0.0922
+Decision  -> Current Strategy: Forward Dominant
+==================================================
+
+
+==================================================
+      [Mechanistic Metric (CAS / Gating Cascade)]      
+--------------------------------------------------
+Independent Prob (p_i):
+  [ 0.4409 | 0.5694 | 0.3713 | 0.4613 | 0.4084 | 0.4604 | 0.3783 | 0.4986 | 0.5045 | 0.5030 ]
+Cascaded Prob (pi_i):
+  [ 1.0000 | 1.0000 | 0.3713 | 0.1716 | 0.0706 | 0.0327 | 0.0126 | 0.0063 | 0.0032 | 0.0016 ]
+--------------------------------------------------
+Effective Gaussian Count (EGC) Summary:
+  Mean EGC : 2.6698
+  Min EGC  : 2.5247
+  Max EGC  : 2.7873
+--------------------------------------------------
+Gaussian Bandwidth (Sigma) Bifurcation:
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.5302
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.7120
+  Bifurcation Status : WEAK / NO BIFURCATION
+==================================================

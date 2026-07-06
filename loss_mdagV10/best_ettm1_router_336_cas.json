@@ -1,0 +1,13 @@
+{
+    "dataset": "ETTm1",
+    "gate_type": "adaptive_direction",
+    "mse": 0.3583891987800598,
+    "mae": 0.3827245533466339,
+    "batch_size": 1024,
+    "learning_rate": 0.001,
+    "dropout": 0.6000000000000001,
+    "gs_residual_weight": 0.4,
+    "gate_beta": 0.1,
+    "gate_lambda": 0.1,
+    "gate_window_half": 2
+}

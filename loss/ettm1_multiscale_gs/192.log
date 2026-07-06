@@ -1,0 +1,11 @@
+Current representation: pure_gs
+Use GPU: cuda:0
+[Model Factory] 路由已命中 -> 正在初始化: pure_gs variant in unified yzy model
+>>>>>>>start training : long_term_forecast_ETTm1_336_192_multiscale_gs_yzy_ETTm1_ftM_sl336_ll48_pl192_dm256_nh4_el1_dl1_df512_fc3_ebtimeF_dtTrue_Exp_Multiscale_GS_0>>>>>>>>>>>>>>>>>>>>>>>>>>
+train 34033
+val 11329
+test 11329
+	[Optimizer] Applied differentiated weight decay (0.0005) for splatting module
+	[Splatting] Freezing Gaussian splatting for first 10 epochs
+	iters: 200, epoch: 1 | loss: 0.4430929
+	speed: 0.0242s/iter; left time: 381.5440s

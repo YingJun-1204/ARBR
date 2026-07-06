@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Caches and local settings
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# Datasets and model checkpoints
+data/
+checkpoints/
+results/
+logs/
+exp/
+loss日志/
+
+# Output test directories
+test_opt_b_output/
+test_weather_output/
+test_batch_256/
+
+# Databases and Optuna studies
+*.db
+scratch/test_output/
+scratch/test_output_1024/
+scratch/test_output_v4/
+

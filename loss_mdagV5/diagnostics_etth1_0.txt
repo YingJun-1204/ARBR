@@ -1,0 +1,60 @@
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: -0.0077 | std: 0.2760 | abs_mean: 0.2367
+Direction -> min/max: -0.6970 / 0.8292
+Route Probabilities:
+  Neutral -> mean: 0.3703 | std: 0.1476
+  Forward -> mean: 0.3110 | std: 0.1675
+  Reverse -> mean: 0.3187 | std: 0.1446
+Route Confidence -> max_prob mean: 0.5079 | std: 0.0862
+Uncertain ratio  -> max_prob < 0.45: 27.36%
+Route Argmax Ratios:
+  Neutral: 45.22% | Forward: 27.91% | Reverse: 26.87%
+--------------------------------------------------
+Strength  -> mean: 0.6297 | std: 0.1476 | min/max: 0.1020 / 0.9931
+Strength ratios -> Active(>0.5): 79.32% | Weak(<0.1): 0.00% | Mid: 20.68%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: 0.0023 | std: 0.1968 | abs_mean: 0.1566
+Eff_Dir   -> min/max: -0.6383 / 0.8202
+Eff_Dir ratios -> Positive(>0.05): 35.34%
+                  Negative(<-0.05): 48.33%
+                  Near Zero(<=0.05): 16.33%
+Scale     -> mean: 1.0002 | std: 0.0326
+Decision  -> Current Strategy: Mixed Gating
+==================================================
+
+
+==================================================
+      [Local Geometry Attention (LGA) Diagnostics]      
+--------------------------------------------------
+Raw LGA Distance -> mean: 2.611179 | std: 4.441363
+Raw LGA Distance -> min: 0.998977 | max: 1224.860840
+LGA Mean (Routed to Neutral): -0.3693
+LGA Mean (Routed to Forward): 0.2358
+LGA Mean (Routed to Reverse): 0.3767
+Correlation(LGA, Energy) -> mean: 0.0688
+==================================================
+
+
+==================================================
+      [Mechanistic Metric (CAS / Gating Cascade)]      
+--------------------------------------------------
+Independent Prob (p_i):
+  [ 0.4899 | 0.5155 | 0.4747 | 0.5968 | 0.4757 | 0.4663 | 0.4283 | 0.5663 | 0.5426 | 0.4964 ]
+Cascaded Prob (pi_i):
+  [ 1.0000 | 1.0000 | 0.4747 | 0.2832 | 0.1344 | 0.0627 | 0.0269 | 0.0152 | 0.0082 | 0.0041 ]
+--------------------------------------------------
+Effective Gaussian Count (EGC) Summary:
+  Mean EGC : 3.0094
+  Min EGC  : 2.9611
+  Max EGC  : 3.0868
+--------------------------------------------------
+Gaussian Bandwidth (Sigma) Bifurcation:
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.6070
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6833
+  Bifurcation Status : WEAK / NO BIFURCATION
+==================================================

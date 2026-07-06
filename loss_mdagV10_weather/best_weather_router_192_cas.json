@@ -1,0 +1,13 @@
+{
+    "dataset": "weather",
+    "gate_type": "adaptive_direction",
+    "mse": 0.18398231267929077,
+    "mae": 0.23291842639446259,
+    "batch_size": 256,
+    "learning_rate": 0.0008,
+    "dropout": 0.75,
+    "gs_residual_weight": 0.2,
+    "gate_beta": 0.1,
+    "gate_lambda": 0.03,
+    "gate_window_half": 2
+}

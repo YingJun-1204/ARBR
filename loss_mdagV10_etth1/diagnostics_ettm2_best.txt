@@ -1,0 +1,51 @@
+
+==================================================
+      [Mechanistic Metric (Gaussian Density)]      
+--------------------------------------------------
+Average EGC: 0.0708 / 10
+EGC Ratio: 0.0071
+Density Sigmoid Mean: 0.0712
+Density Sigmoid P50: 0.0049
+Density Sigmoid P95: 0.4012
+Density Active Ratio (>0.5): 0.0074
+==================================================
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: -0.0832 | std: 0.0364 | abs_mean: 0.0832
+Direction -> min/max: -0.1844 / -0.0000
+Route Probabilities:
+  Neutral -> mean: 0.5038 | std: 0.2150
+  Forward -> mean: 0.2065 | std: 0.0895
+  Reverse -> mean: 0.2897 | std: 0.1256
+Route Confidence -> max_prob mean: 0.5443 | std: 0.1780
+Uncertain ratio  -> max_prob < 0.45: 45.90%
+Route Argmax Ratios:
+  Neutral: 66.77% | Forward: 0.00% | Reverse: 33.23%
+--------------------------------------------------
+Strength  -> mean: 0.4962 | std: 0.2150 | min/max: 0.0001 / 0.9406
+Strength ratios -> Active(>0.5): 58.19% | Weak(<0.1): 6.94% | Mid: 34.87%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: -0.0491 | std: 0.0320 | abs_mean: 0.0491
+Eff_Dir   -> min/max: -0.1677 / -0.0000
+Eff_Dir ratios -> Positive(>0.05): 0.00%
+                  Negative(<-0.05): 50.97%
+                  Near Zero(<=0.05): 49.03%
+Scale     -> mean: 0.9875 | std: 0.0055
+Decision  -> Current Strategy: Mixed Gating
+==================================================
+
+
+==================================================
+      [Local Geometry Attention (LGA) Diagnostics]      
+--------------------------------------------------
+Raw LGA Distance -> mean: 2.368176 | std: 4.619519
+Raw LGA Distance -> min: 0.000000 | max: 279.907776
+LGA Mean (Routed to Neutral): 0.3460
+LGA Mean (Routed to Forward): nan
+LGA Mean (Routed to Reverse): -0.6953
+Correlation(LGA, Energy) -> mean: 0.3498
+==================================================

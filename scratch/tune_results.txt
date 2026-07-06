@@ -1,0 +1,10 @@
+=== Ablation Tuning Results Summary ===
+
+File Name                                          | Gating   | MSE        | MAE        | Res Weight   | Gaussians  | LR        
+-------------------------------------------------------------------------------------------------------------------
+best_nooc_linear_etth1_forward_96.json             | forward  | 0.359972   | 0.391144   | 0.581891     | 5          | 3.221984e-04
+best_nooc_linear_etth1_none_96.json                | none     | 0.358857   | 0.388990   | 0.381048     | 2          | 3.056918e-04
+best_nooc_linear_etth1_reverse_96.json             | reverse  | 0.357547   | 0.387280   | 0.411123     | 3          | 6.399687e-04
+best_nooc_linear_etth2_forward_96.json             | forward  | 0.266624   | 0.334301   | 0.346287     | 5          | 4.402820e-04
+best_nooc_linear_etth2_none_96.json                | none     | 0.269086   | 0.335422   | 0.206622     | 8          | 2.324559e-04
+best_nooc_linear_etth2_reverse_96.json             | reverse  | 0.268083   | 0.332574   | 0.464686     | 9          | 9.506554e-05

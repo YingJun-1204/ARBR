@@ -1,0 +1,48 @@
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: 0.0000 | std: 0.0000 | abs_mean: 0.0000
+Direction -> min/max: 0.0000 / 0.0000
+Route Probabilities:
+  Neutral -> mean: 1.0000 | std: 0.0000
+  Forward -> mean: 0.0000 | std: 0.0000
+  Reverse -> mean: 0.0000 | std: 0.0000
+Route Confidence -> max_prob mean: 1.0000 | std: 0.0000
+Uncertain ratio  -> max_prob < 0.45: 0.00%
+Route Argmax Ratios:
+  Neutral: 100.00% | Forward: 0.00% | Reverse: 0.00%
+--------------------------------------------------
+Strength  -> mean: 0.0000 | std: 0.0000 | min/max: 0.0000 / 0.0000
+Strength ratios -> Active(>0.5): 0.00% | Weak(<0.1): 100.00% | Mid: 0.00%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: 0.0000 | std: 0.0000 | abs_mean: 0.0000
+Eff_Dir   -> min/max: 0.0000 / 0.0000
+Eff_Dir ratios -> Positive(>0.05): 0.00%
+                  Negative(<-0.05): 0.00%
+                  Near Zero(<=0.05): 100.00%
+Scale     -> mean: 1.3658 | std: 0.0255
+Decision  -> Current Strategy: Mostly Neutral / No Density Gating
+==================================================
+
+
+==================================================
+      [Mechanistic Metric (CAS / Gating Cascade)]      
+--------------------------------------------------
+Independent Prob (p_i):
+  [ 0.4928 | 0.5021 | 0.4936 | 0.5846 | 0.5094 | 0.5407 | 0.4774 | 0.5646 | 0.5661 | 0.5097 ]
+Cascaded Prob (pi_i):
+  [ 1.0000 | 1.0000 | 0.4936 | 0.2889 | 0.1470 | 0.0796 | 0.0380 | 0.0215 | 0.0122 | 0.0062 ]
+--------------------------------------------------
+Effective Gaussian Count (EGC) Summary:
+  Mean EGC : 3.0871
+  Min EGC  : 3.0163
+  Max EGC  : 3.2544
+--------------------------------------------------
+Gaussian Bandwidth (Sigma) Bifurcation:
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.6111
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.7141
+  Bifurcation Status : WEAK / NO BIFURCATION
+==================================================

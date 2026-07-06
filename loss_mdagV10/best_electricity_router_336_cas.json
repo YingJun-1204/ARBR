@@ -1,0 +1,13 @@
+{
+    "dataset": "electricity",
+    "gate_type": "adaptive_direction",
+    "mse": 0.16333875060081482,
+    "mae": 0.2582720220088959,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "dropout": 0.30000000000000004,
+    "gs_residual_weight": 0.2,
+    "gate_beta": 0.1,
+    "gate_lambda": 0.05,
+    "gate_window_half": 2
+}

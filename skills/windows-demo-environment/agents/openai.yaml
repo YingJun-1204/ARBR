@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows项目环境"
+  short_description: "Windows、中文编码、conda和DataLoader规则"
+  default_prompt: "在Windows中文项目中运行命令或编辑文件时，遵守编码、conda环境和num_workers规则。"

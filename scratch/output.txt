@@ -1,0 +1,2285 @@
+Total pages: 40
+
+=== Table 2 & Severity 0 Sections ===
+
+--- Page 2 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+3
+2
+1
+0
+1
+2
+3
+X
+3
+2
+1
+0
+1
+2
+3
+Y
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Attn Score Surface of Standard (Red) and Local Geometry (Blue) Attn.
+Data Points
+Query Point 1
+Query Point 2
+(a) Attention score surfaces of LGA for two distinct
+query points
+1.0
+0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+X
+1.0
+0.5
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+3.0
+Y
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Data Points
+Query Point
+Anomaly
+High Score on Anomaly
+(Standard Attention)
+(b) Attention score surfaces of LGA and Standard
+Attention for a query point, with an anomaly
+Figure 1: The core principles of Local Geometry Attention (LGA) illustrated on a 2D toy dataset. In
+(a), for two different data distributions, the attention score surface generated from each query point
+(Query Point 1 and Query Point 2) correctly captures the unique local geometry of its respective
+cluster. (b) demonstrates robustness of LGA: while standard attention (red surface) is distracted by
+the anomaly and assigns it a high score, LGA (blue surface) correctly identifies it as an anomaly and
+maintains focus on the main data distribution.
+scores, enabling it to model complex local data structures without imposing strong global
+assumptions.
+• We introduce TSRBench, a comprehensive benchmark for evaluating time series forecasting
+robustness. TSRBench provides statistically grounded methods for injecting two canonical
+corruption types—spikes and level shifts—with controllable severity levels, addressing a
+critical gap in principled robustness evaluation for time series.
+• We demonstrate practical effectiveness and robustness of LGA through extensive experi-
+ments. As illustrated in Figure 1, LGA successfully identifies distinct data distributions and
+ignores anomalies, unlike standard attention. Our full empirical evaluation on the TSRBench
+benchmark further shows that LGA consistently and significantly mitigates performance
+degradation under various realistic corruptions.
+We validate our approach through extensive experiments on standard forecasting datasets. The results
+demonstrate that LGA significantly mitigates performance degradation under corruption compared to
+existing baselines, highlighting the importance of designing both robust attention mechanisms and
+principled evaluation tools for time series forecasting.
+2 R ELATED WORK
+Theoretical Approaches for Attention. Transformers (Vaswani et al., 2017) have become the
+dominant architecture in natural language processing (Devlin et al., 2019; Brown et al., 2020; Raffel
+et al., 2020) and vision (Dosovitskiy et al., 2021; Liu et al., 2021; Touvron et al., 2021), and have
+recently been extended to time series analysis (Wu et al., 2021; Zhang & Yan, 2023; Nie et al.,
+2023). Attention is a fundamental component of Transformer architectures, and recent studies have
+offered several theoretical interpretations of its structure. Bui et al. (2024) interpret attention as cross-
+covariance between correlated Gaussian processes to enable asymmetric uncertainty-aware attention.
+Similarly, Chen & Li (2023) proposes Sparse Gaussian process Attention (SGPA), which replaces
+the standard dot-product with a symmetric kernel, allowing Bayesian inference via the GP posterior.
+Han et al. (2023) propose robust kernel density estimation (RKDE), which mitigates the influence
+of outlier keys in the computation of attention scores. They employ the Median-of-Means (MoM)
+2
+==================================================
+
+--- Page 3 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+principle (Jerrum et al., 1986; Humbert et al., 2022) into RKDE to further improve computational
+efficiency. Nielsen et al. (2024) constructs hyper-ellipsoidal neighborhoods around queries to increase
+attention weights in contextually important directions. However, these approaches either rely on
+global kernel assumptions or do not explicitly capture the local geometric structure of the data.
+Robustness benchmarks under Realistic Corruptions. Robustness benchmarks are critical
+for evaluating model performance under contaminated inputs. In computer vision, ImageNet-C
+(Hendrycks & Dietterich, 2019) set a standard by testing models against various common corruptions
+at multiple severity levels. Similar efforts exist in natural language processing (McCoy et al., 2020;
+Nie et al., 2020). In contrast, the time series domain has largely focused on robustness against syn-
+thetic adversarial attacks (Liu et al., 2023; Lin et al., 2024), which target model-specific vulnerabilities
+but may not reflect naturally occurring data degradation.
+Recent studies, however, emphasize the importance of evaluating models against realistic corruptions
+that mirror real-world phenomena (Cheng et al., 2024). Real-world time series often exhibit both
+minor point-wise disturbances and structured anomalies that signal meaningful, event-driven changes,
+such as random spikes from sensor limitations or sustained level shifts from hardware malfunctions
+(Si et al., 2024; Schmidl et al., 2022). Despite the need, a standardized benchmark for such realistic
+corruptions in time series remains a significant gap, underscoring the need for a systematic framework
+to evaluate model robustness under diverse operational conditions.
+3 L OCAL GEOMETRY ATTENTION
+4
+ 2
+ 0 2
+2
+0
+2
+Keys (period=3)
+Queries (period=3)
+Figure 2: Key-query embed-
+dings in PatchTST showing natu-
+ral clustering of periodic patterns.
+We proposeLocal Geometry Attention (LGA), a novel approach
+that adapts to the intrinsic geometric structure of time series data.
+Unlike standard attention mechanisms that use dot product sim-
+ilarity in Euclidean space, LGA computes attention scores using
+query-specific distance metrics derived from Gaussian process
+theory. This approach captures the local geometric structure of
+the data manifold, enabling more effective attention mechanisms
+that reflect the inherent geometry of periodic temporal patterns,
+as illustrated in Figure 2, where similar periodic patterns naturally
+form clusters.
+In this section, we build LGA from the ground up. We start
+by developing its theoretical foundation in three parts: we first
+establish a local kernel-covariance formulation to capture data
+geometry in Section 3.1; we then connect this to local Gaussian processes to estimate data density
+in Section 3.2; and finally, we derive the geometry-aware attention scoring function in Section 3.3.
+With the theory established, Section 3.4 then presents the practical implementation, detailing how
+this theoretically-grounded function is efficiently approximated for use in modern architectures.
+3.1 L OCAL GEOMETRY ESTIMATION VIA KERNEL -C OVARIANCE
+To capture the local geometric structure of time series data, we employ local Gaussian processes
+instead of traditional global Gaussian processes. We first establish a local kernel-covariance formula-
+tion that naturally extends to a local Gaussian process framework, providing a principled foundation
+for modeling the intrinsic geometry of time series and informing our attention mechanism.
+Local Kernel–covariance. First, we define linear mappings that project an input x ∈ Rn into key
+and query representations, k ∈ Rd and q ∈ Rd, respectively. For a set of inputs {x1, . . . , xT } and a
+target point x∗, we obtain key vectors {k1, . . . ,kT } and a query vector q∗.
+We then define a feature mapping ϕ : Rd → Wbased on the difference between keys and the query:
+ϕ(ki) = ki − q∗. The design matrix Φ is constructed as:
+Φ(x∗) = [ϕ(k1), · · ·, ϕ(kT )]⊤ .
+3
+==================================================
+
+--- Page 6 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+0 100 200 300 400
+6
+11
+16
+21
+(a) Original signal XT
+0 100 200 300 400
+6
+11
+16
+21 (b) XT w/ spike noise
+0 100 200 300 400
+6
+11
+16
+21 (c) XT w/ level shift
+0 100 200 300 400
+6
+11
+16
+21 (d) XT w/ combined noise
+Figure 4: Visualization of synthetic corruptions on the ETTm1 dataset. (a) Original time series
+without any corruption. (b) Time series with spike corruptions. (c) Time series with level shift
+corruptions. (d) Time series with a combination of corruptions, demonstrating how our TSRBench
+creates challenging test cases for time series models.
+The networks are then trained to minimize the mean squared error between their prediction and the
+true metric tensor. The total loss is a weighted sum over all layers L and heads H:
+LG = 1
+L · H
+LX
+l=1
+HX
+h=1
+
+ 1
+|S h,l
+real|
+X
+q∈S h,l
+real
+L(Gtrue(q), fθl
+h
+(q)) + 1
+|Sgen|
+X
+q∈Sgen
+L(Gtrue(q), fθl
+h
+(q))
+
+ (7)
+This pre-learning strategy decouples the expensive geometry estimation from training and inference
+of the model. Consequently, the local geometric structure can be rapidly approximated, making LGA
+practical for modern deep learning models. The complete algorithm is detailed in Appendix B.
+4 C ORRUPTED TIME SERIES BENCHMARK : TSRB ENCH
+To address the gap in standardized robustness evaluation for time series, we introduceTSRBench,
+a new benchmark designed to assess model performance against realistic, statistically-grounded
+corruptions. Unlike adversarial attacks, TSRBench focuses on corruptions reflecting naturally
+occurring data degradation, such as sensor limitations or external shocks (Si et al., 2024; Schmidl
+et al., 2022).
+While evaluation on real-world datasets with genuine anomalies is ideal, it presents challenges for the
+specific task of forecasting robustness. A fair evaluation requires the ground truth of the test set to be
+clean, which necessitates precise, time-aligned anomaly labels to exclude corrupted periods from
+the loss calculation. However, most real-world forecasting benchmarks lack such labels, making it
+impossible to reliably isolate the effects of input corruptions on future predictions. Our TSRBench
+addresses this critical gap by providing a controlled environment where corruptions are systematically
+injected into the input, while the ground truth for the forecasting horizon remains clean. This enables
+a principled and reproducible assessment of model robustness that is difficult to achieve otherwise.
+Our benchmark introduces two canonical corruption types: spikes and level shifts (Wang et al., 2021;
+Lavin & Ahmad, 2015), which model phenomena like transient bursts and sustained deviations.
+This provides a more realistic test than common augmentation like jittering (Iglesias et al., 2023).
+To support a systematic evaluation, we adopt statistically grounded noise injection methods with
+controllable severity levels (Siffer et al., 2017; Wunderlich & Sklar, 2023).
+Local Corruption Functions. Given an original time series X ∈ RT , we generate two types of
+corruptions: spikes, εspike, and level shifts, εshift. The timing of these corruption events is governed
+by a Poisson process with rate λ, reflecting the random arrival of discrete perturbations.
+Each corruption type is defined by an amplitude parameter h and duration parameters ( d1, d2, or
+d). For a corruption event starting at time τ, the spike function εspike
+τ (s) simulates an asymmetric
+exponential spike, while the level shift function εshift
+τ (s) models a flat shift. These are defined as
+follows:
+6
+==================================================
+
+--- Page 7 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+εspike
+τ (s) =
+
+
+
+hspike
+τ · exp
+
+− ln(β)
+d1
+(s − τ − d1)
+
+if τ ≤ s < τ+ d1
+hspike
+τ · exp
+
+ln(β)
+d2
+(s − τ − d1)
+
+if τ + d1 ≤ s ≤ τ + d1 + d2
+εshift
+τ (s) = hshift
+τ for τ ≤ s < τ+ d
+(8)
+Here, the duration parameters (d1, d2, d) are sampled from a geometric distribution with parameter p,
+and the sharpness is fixed at β = 10−4. Crucially, the corruption amplitudes ( hspike
+τ , hshift
+τ ) are not
+arbitrary. They are calibrated based on time-varying statistical thresholds determined by a significance
+level q. This process, which uses the DSPOT algorithm (Siffer et al., 2017) to model extreme values,
+ensures that the injected corruptions represent statistically significant but realistic deviations from
+the normal behavior of signal. The complete generation algorithm is detailed in the Appendix F.1
+(Algorithm 2).
+Each final corrupted signal is formed by summing the noise instances from all events:
+εspike(t) =
+X
+τ ∈T
+εspike
+τ (t), and εshift(t) =
+X
+τ ∈T
+εshift
+τ (t) (9)
+where T is the set of starting times for corruption events. Figure 4 visualizes examples of these
+corruptions.
+Table 1: Parameter settings defining the five corruption severity levels. From level 1 to 5, the
+expected corruption frequency (λ) and duration (p) increase, while the amplitude significance level
+(q) decreases. They collectively intensifying the corruption.
+Params. Description 1 2 3 4 5
+λ Expected frequency of corruptions 0.002 0.004 0.004 0.008 0.008
+p Expected duration of each corruption 6 9 12 12 15
+q Significance level of amplitude 0.0016 0.0016 0.0004 0.0004 0.0001
+Corruption Severity Levels. To comprehensively evaluate model robustness, we designed five
+severity levels that represent gradually increasing data degradation. The corrupted time series is
+generated by adding the synthesized corruptions to the original signal as described.
+We control the severity of corruptions at each level using a parameter triplet ( λ, p, q), which re-
+spectively regulate the frequency, expected duration, and amplitude significance of the anomalies.
+The specific values for each level, summarized in Table 1, were established through extensive ex-
+perimentation to create a progressive scale of difficulty, from Level 1 (mild) to Level 5 (frequent,
+prolonged, and high-magnitude corruption). We conducted extensive experiments with various
+parameter configurations to determine these settings, which are presented in Appendix F.2.
+5 E XPERIMENTS
+We empirically evaluate the robustness of LGA using our proposed TSRBench on six standard
+forecasting datasets: Weather1, Electricity2, and ETT (Zhou et al., 2021) (ETTh1, ETTh2, ETTm1,
+ETTm2). We integrate LGA into the PatchTST architecture (Nie et al., 2023), referred to as PatchLGA,
+by replacing its standard Scaled-Dot Product (SDP) attention. We compare PatchLGA against the
+original PatchTST and other strong baselines, including TimeMixer (Wang et al., 2024), CATS (Kim
+et al., 2024), and iTransformer (Liu et al., 2024), to assess its effectiveness across various model
+types.
+5.1 L ONG -TERM TIME SERIES FORECASTING RESULTS UNDER REALISTIC CORRUPTIONS
+We evaluate forecasting models on TSRBench across six corruption levels (0-5) with an input length
+of 512. Table 10 summarizes the results for combined spike and level shift corruptions, averaged
+1https://www.bgc-jena.mpg.de/wetter/
+2https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014
+7
+==================================================
+
+--- Page 8 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+Table 2: Performance comparison of PatchLGA, PatchTST, and TimeMixer across different datasets
+under combined corruptions. Results show average performance across forecasting horizons {96,
+192, 336, 720}. We report MSE and MAE at varying severity levels 0-5 (0 = original data). Lower
+values are better, with the best results highlighted in bold.
+Dataset ETTm1 ETTm2 Weather
+Model PatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixer
+MetricMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAE
+Severity
+0 0.351 0.3790.352 0.3820.360 0.3900.2570.3160.2560.3170.259 0.3220.227 0.2650.225 0.2640.227 0.266
+1 0.359 0.3850.3590.3890.366 0.3960.264 0.3260.2640.3280.265 0.3300.238 0.2840.2390.2840.242 0.288
+2 0.372 0.3970.375 0.4020.385 0.4090.276 0.3350.277 0.3380.279 0.3410.264 0.3130.266 0.3140.275 0.320
+3 0.519 0.4680.614 0.5070.594 0.4990.304 0.3550.308 0.3600.310 0.3640.301 0.3380.306 0.3390.326 0.350
+4 0.617 0.5260.695 0.5580.716 0.5600.356 0.3950.361 0.4000.373 0.4090.361 0.3890.369 0.3840.441 0.421
+5 0.734 0.5770.839 0.6130.837 0.6130.421 0.4280.431 0.4340.459 0.4500.454 0.4230.4910.4230.576 0.464
+Dataset ETTh1 ETTh2 Electricity
+Model PatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixer
+MetricMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAE
+Severity
+0 0.415 0.4280.4150.4290.436 0.4450.337 0.3850.343 0.3870.351 0.3930.161 0.2550.160 0.2540.165 0.259
+1 0.416 0.4300.416 0.4300.437 0.4470.338 0.3870.343 0.3890.352 0.3940.168 0.2640.169 0.2650.172 0.268
+2 0.420 0.4350.421 0.4360.441 0.4510.345 0.3970.3490.3970.363 0.4060.179 0.2760.184 0.2790.184 0.280
+3 0.471 0.4650.474 0.4680.498 0.4830.358 0.4070.3620.4070.384 0.4200.193 0.2880.201 0.2930.201 0.293
+4 0.547 0.5100.550 0.5130.572 0.5260.382 0.4250.391 0.4270.416 0.4430.226 0.3170.232 0.3210.237 0.323
+5 0.712 0.5800.724 0.5880.733 0.5960.404 0.4360.427 0.4450.459 0.4650.284 0.3520.290 0.3580.312 0.361
+over four forecasting horizons. First, the results at Severity 0 serve as a crucial baseline to ensure
+that our proposed robust attention mechanism does not degrade performance on the original, clean
+data. This confirms that integrating LGA does not compromise the inherent forecasting capability of
+model on clean data. As corruption severity increases, PatchLGA consistently shows the most robust
+performance. Its advantage becomes more pronounced at higher severity levels; for example, at level
+5, PatchLGA achieves a 12.3% MSE reduction on ETTm1 and is 21.2% lower than TimeMixer on
+the large Weather dataset. These results confirm the effectiveness of modeling local geometry for
+enhancing robustness, especially when data quality cannot be guaranteed.
+5.2 C OMPARISON WITH ALTERNATIVE ROBUST ATTENTION METHODS
+We evaluated robust attention mechanisms on time series forecasting with corruptions. Our proposed
+LGA consistently outperforms both standard attention and other robust attention variants including
+MoM (Han et al., 2023) and Elliptical attention (Nielsen et al., 2024).
+Table 3: Averaged MSE comparison on
+ETTm1 for LGA, SDP, MoM, and Ellip-
+tical attention. Lower values indicate bet-
+ter performance, with the best result for
+each severity level highlighted in bold.
+Model PatchTST
+Severity SDP MoM Ellip. LGA
+1 0.359 0.375 0.360 0.359
+2 0.375 0.397 0.374 0.372
+3 0.614 0.670 0.722 0.519
+4 0.695 0.871 0.755 0.617
+5 0.839 1.016 0.880 0.734
+/uni000003ec/uni00000358/uni000003ee/uni000003ec/uni00000358/uni000003f0/uni000003ec/uni00000358/uni000003f2/uni000003ec/uni00000358/uni000003f4
+/uni0000005e/uni00000189/uni0000011e/uni0000011e/uni0000011a/uni00000003/uni0000037e/uni00000190/uni0000036c/uni0000015d/uni0000019a/uni0000011e/uni0000018c/uni0000037f
+/uni000003ec/uni00000358/uni000003f1/uni000003ec
+/uni000003ec/uni00000358/uni000003f1/uni000003f1
+/uni000003ec/uni00000358/uni000003f2/uni000003ec
+/uni000003ec/uni00000358/uni000003f2/uni000003f1
+/uni000003ec/uni00000358/uni000003f3/uni000003ec
+/uni00000044/uni0000005e/uni0000001c
+/uni00000044/uni0000004b/uni00000044
+/uni000003ed/uni000003f2/uni00000358/uni000003ec/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000001c/uni0000016f/uni0000016f/uni0000015d/uni00000189/uni0000019a/uni0000015d/uni00000110/uni00000102/uni0000016f
+/uni000003ef/uni00000358/uni000003ed/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000003e/uni00000027/uni00000004/uni00000003/uni0000037e/uni0000017d/uni000001b5/uni0000018c/uni00000190/uni0000037f
+/uni000003f0/uni00000358/uni000003f2/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000005e/uni00000018/uni00000057
+/uni000003ef/uni00000358/uni000003ec/uni00000003/uni00000027/uni0000015d/uni00000011
+Figure 5: Comparison of MSE, training
+speed, and memory usage. Attention closer
+to the lower-left corner achieves better trade-
+offs between accuracy and efficiency.
+As shown in Table 3, while robust attention mechanisms successful in vision and language tasks
+underperform compared to standard attention when applied to corrupted time series data, our LGA
+specifically designed for temporal structure exhibits the smallest performance degradation under
+corruption. Unlike Elliptical attention, which trades speed for memory efficiency without robustness
+gains (Fig. 5), LGA effectively leverages local geometry in time series while seeing a moderate
+increase in memory usage, yet maintaining a training speed comparable to standard attention.
+8
+==================================================
+
+--- Page 9 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+5.3 R OBUSTNESS ANALYSIS ACROSS ATTENTION MECHANISMS
+We conducted experiments to evaluate the effectiveness of LGA across various types of attention
+strategies. In time series transformers, two primary attention approaches exist: temporal attention,
+which focuses on relationships between time steps within each variable, and channel attention, which
+emphasizes relationships between different variables at each time step.
+Table 4: Comparison of attention mechanisms on ETTm1 under 5 severity levels. Values show
+MSE averaged across forecasting horizons {96, 192, 336, 720}. Bold values indicate the better
+performance for each experiment.
+Model PatchTST CA TS iTransformer
+Noise TypeCombinedLevel Shift Spike CombinedLevel Shift Spike CombinedLevel Shift Spike
+Attn TypeLGASDPLGASDPLGASDPLGASDPLGASDPLGASDPLGASDPLGASDPLGASDP
+Severity
+1 0.359 0.3590.359 0.3590.352 0.3520.345 0.3450.3440.3450.3400.3380.4250.4290.4230.4270.4110.413
+2 0.3720.3750.3700.3740.3530.3530.3620.3640.3590.3610.3420.3400.4590.4650.4550.4620.4130.414
+3 0.5190.6150.5060.6080.3620.3640.6620.7790.6340.7650.3490.3550.7830.8010.7560.7710.4340.440
+4 0.6170.6950.6020.6910.3670.3690.9720.9860.9230.9650.3570.3661.0001.0270.9490.9700.4530.465
+5 0.7340.8390.7180.8480.3720.3741.0371.1021.0031.0840.3580.3661.2661.3091.2021.2290.4690.485
+As shown in Table 4, LGA enhances robustness across diverse attention architectures. PatchTST,
+with its temporal self-attention, consistently achieves the most significant performance gains. While
+CATS shows a notable peak improvement of up to 17.1%, its gains are less consistent, likely because
+its cross-attention operates on linearly embedded noisy inputs. iTransformer displays modest but
+stable improvements because it applies a linear embedding to the entire time series, which disrupts
+the local geometry created by temporal periodic patterns. These results validate that LGA is a
+broadly applicable technique for improving model robustness, demonstrating its benefit for temporal
+self-attention, cross-attention, and channel-wise attention.
+5.4 I MPACT OF INPUT LENGTH ON ROBUSTNESS UNDER REALISTIC CORRUPTIONS
+To investigate the relationship between temporal context and model robustness, we evaluated
+PatchLGA, PatchTST, and TimeMixer by varying input sequence lengths under corrupted con-
+ditions. The results in Figure 6 demonstrate superior capability of PatchLGA to leverage long
+historical contexts for accurate forecasting in the presence of noise.
+192 336 512 720 1024
+Input Length
+0.50
+0.55
+0.60
+0.65Avg. MSE
+(a) H = 96
+192 336 512 720 1024
+Input Length
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75
+ (b) H = 192
+192 336 512 720 1024
+Input Length
+0.50
+0.55
+0.60
+0.65
+0.70
+0.75
+0.80
+ (c) H = 336
+192 336 512 720 1024
+Input Length
+0.55
+0.60
+0.65
+0.70
+0.75
+0.80
+0.85
+ PatchLGA
+PatchTST
+TimeMixer (d) H = 720
+Figure 6: Performance comparison of different models on ETTm1 across varying input lengths under
+corruption. The y-axis shows average MSE (lower is better) for forecasting different horizons H,
+while the x-axis represents input sequence length.
+Across all forecasting horizons, PatchLGA (red line) shows a consistent and significant reduction in
+MSE as the input sequence length increases, achieving the lowest MSE in nearly all experimental
+settings. This highlights its strong benefit in utilizing extended temporal data to mitigate the impact
+of corruptions. In contrast, while PatchTST (green line) also benefits from longer sequences, its
+performance remains inferior to PatchLGA. The linear model, TimeMixer (blue line), fails to
+capitalize on increased context, with its performance stagnating or degrading. In conclusion, these
+results provide compelling evidence that PatchLGA is effectively designed to enhance forecasting
+accuracy by effectively processing long, noisy input sequences, underscoring its suitability for
+real-world applications.
+9
+==================================================
+
+--- Page 10 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+5.5 Q UALITATIVE ANALYSIS OF ATTENTION GEOMETRY
+To intuitive understand how LGA handles corrupted data, we visualize the attention score distribution
+in the query-key space. We utilize Principal Component Analysis (PCA) to project the key and query
+vectors from a representative attention head into 2D space. The experiment was conducted on the
+ETTm1 dataset under Severity Level 5 corruption.
+6
+ 4
+ 2
+ 0 2 4
+6
+4
+2
+0
+2
+4
+                  SDP Q/K Distribution (8D PCA)
+Query (Corrupted)
+Key (Corrupted)
+Query
+Key
+(a) Standard Dot-Product (SDP) Attention
+10
+ 8
+ 6
+ 4
+ 2
+ 0 2 4
+5
+4
+3
+2
+1
+0
+1
+2
+                  LGA Q/K Distribution (8D PCA)
+Query (Corrupted)
+Key (Corrupted)
+Query
+Key (b) Local Geometry Attention (LGA)
+Figure 7: PCA visualization of attention scores under corruption. Point size indicates attention
+magnitude, and dark points denote corrupted regions. Unlike (a) SDP, which assigns high weights to
+noise, (b) LGA effectively suppresses these off-manifold anomalies.
+As observed in Figure 7, SDP attention (a) is prone to distraction by outliers, assigning them large
+attention weights. In contrast, LGA (b) successfully suppresses these outliers, assigning them minimal
+attention weights due to their distance from the high-density data manifold. Consequently, by filtering
+out anomalies, LGA ensures the model remains focused on intrinsic temporal patterns, leading to
+significantly more robust and accurate forecasting under severe corruption.
+5.6 C OMPUTATIONAL EFFICIENCY OF LOCAL GEOMETRY ATTENTION
+Table 5: Relative overhead of LGA com-
+pared to SDP (Full Transformer Block).
+Method Inference Training
+SDP 24.78 G 73.99 G
+LGA (Ours) 27.67 G 89.96 G
+Overhead +11.7% +21.6%
+While LGA introduces operations for metric prediction
+and Mahalanobis scoring, its practical computational over-
+head remains marginal. Because the Feed-Forward Net-
+work (FFN) governs the primary computational budget of
+a Transformer block, the relative cost of the attention mod-
+ule is significantly offset. As shown in Table 7, replacing
+SDP attention with LGA increases the theoretical Floating
+Point Operations (FLOPs) of a full block by only 11.7%
+during inference and 21.6% during training. This confirms
+that LGA effectively captures local data geometry and provides robust modeling with minimal impact
+on computational efficiency. A comprehensive hardware-agnostic analysis and further algorithmic
+optimizations are detailed in Appendix B.2.
+6 C ONCLUSION
+We introduced Local Geometry Attention (LGA), an attention mechanism grounded in local Gaussian
+process theory that adapts to the intrinsic geometry of time series data. To validate its effectiveness,
+we also developed TSRBench, the first standardized benchmark for evaluating models against realistic
+corruptions. Our experiments confirm that geometry-aware approach of LGA provides a substantial
+robustness advantage over strong baselines, especially under severe conditions. While our efficient
+matrix approximation can be explored further, this work provides a powerful new framework and a
+critical evaluation tool for developing forecasting models ready for real-world deployment.
+10
+==================================================
+
+--- Page 19 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+The synthetically generated query set, Sgen, is created based on our empirical observation that
+the components of the real query vectors (Sreal) typically ranged between approximately -5 and 5.
+Therefore, we generated the vectors in Sgen by sampling each component from a uniform distribution,
+U (−5, 5), to ensure the network is exposed to a diverse yet relevant region of the representation
+space.
+Regarding baseline models, for TimeMixer (Wang et al., 2024) experiments, we applied the publicly
+available hyperparameter settings that were originally optimized for input length 96, as these settings
+demonstrated sufficiently strong performance even when applied to our longer input length of 512.
+Similarly, for the experiments presented in Fig. 6, which examines performance across various input
+lengths, we maintained these consistent hyperparameter configurations throughout all comparisons.
+For CATS (Kim et al., 2024), we strictly adhered to the original hyperparameter settings as published
+in the original paper.
+For the iTransformer (Liu et al., 2024) implementation, we noted that publicly available hyper-
+parameters were optimized solely for a 96-length input. As our primary goal was to conduct a
+fair comparison between the SDP attention and our proposed LGA, we adhered to these original
+settings for all iTransformer experiments. This configuration consists of a 2-layer architecture with
+an embedding dimension of 128.
+Table 9: Hyperparameter settings of PatchTST with an input sequence length of 512.
+Datasets Layers Embedding Size # of Heads Batch Size σ2 Input Length
+Weather∗ 3 128 16 128 10−2 512
+Electricity∗ 3 128 16 32 10−2 512
+ETTh1 3 16 4 128 10−2 336
+ETTh2 3 16 4 128 10−2 336
+ETTm1 3 128 16 128 10−2 512
+ETTm2 3 128 16 128 10−2 512
+* For weather and electricity, σ2 = 1when H=720.
+D F URTHER EXPERIMENTS ON LGA
+To supplement the primary findings presented in the main text, we conducted further experiments
+to validate the key design choices of our proposed methodology and to demonstrate its practical
+effectiveness on real-world data.
+D.1 S TABILITY ANALYSIS AND DETAILED PERFORMANCE
+In the main text, we demonstrated the superior robustness of LGA based on average performance
+metrics. Here, we provide a comprehensive breakdown of these results to validate the training stability
+and reliability of our proposed method. Table 10 presents the MSE and MAE across six benchmark
+datasets, reporting the mean and standard deviation computed over three independent runs with
+different random seeds.
+A critical observation from these detailed results is the stability of the learning process. As indicated
+by the standard deviations (denoted by the ± values), PatchLGA consistently exhibits lower variance
+across different initialization seeds compared to the baselines, particularly under high severity levels
+(Severity 4-5). While standard attention mechanisms (PatchTST) often show increased performance
+fluctuation when exposed to severe noise, LGA maintains a tight confidence interval. This suggests
+that the local geometry prior acts as an effective regularizer, guiding the model towards robust
+convergence regardless of random initialization. Consequently, LGA not only improves forecasting
+accuracy but also ensures predictable and reliable deployment in real-world scenarios where data
+quality is inconsistent.
+19
+==================================================
+
+--- Page 20 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+Table 10: Performance comparison of PatchLGA and PatchTST across six datasets under combined,
+level shift, and spike corruptions. Results are averaged across forecasting horizons {96, 192, 336,
+720} and reported as Mean ± Std over 3 random seeds. This detailed breakdown highlights not only
+the superior accuracy (lower MSE/MAE) but also the training stability (lower Std) of LGA compared
+to the baseline.
+ETTm1 PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.3531 ± 0.0022 0.3815 ± 0.00240.3531 ± 0.0022 0.3815 ± 0.00240.3531 ± 0.0022 0.3815 ± 0.00240.3535 ± 0.0017 0.3834 ± 0.00110.3535 ± 0.0017 0.3834 ± 0.00110.3535 ± 0.0017 0.3834 ± 0.00111 0.3601 ± 0.0019 0.3877 ± 0.00200.3598 ± 0.0020 0.3869 ± 0.00200.3538 ± 0.0022 0.3823 ± 0.00240.3607 ± 0.0015 0.3901 ± 0.00100.3605 ± 0.0016 0.3897 ± 0.00090.3540 ± 0.0017 0.3839 ± 0.00112 0.3737 ± 0.0022 0.3985 ± 0.00160.3718 ± 0.0021 0.3971 ± 0.00190.3547 ± 0.0023 0.3828 ± 0.00230.3762 ± 0.0013 0.4026 ± 0.00050.3749 ± 0.0012 0.4018 ± 0.00070.3547 ± 0.0017 0.3848 ± 0.00103 0.5141 ± 0.0050 0.4683 ± 0.00100.5022 ± 0.0041 0.4614 ± 0.00120.3627 ± 0.0018 0.3892 ± 0.00190.5969 ± 0.0198 0.5006 ± 0.00710.5897 ± 0.0200 0.4952 ± 0.00710.3655 ± 0.0013 0.3927 ± 0.00094 0.6110 ± 0.0075 0.5261 ± 0.00230.5960 ± 0.0068 0.5160 ± 0.00200.3678 ± 0.0017 0.3950 ± 0.00160.6807 ± 0.0217 0.5532 ± 0.00800.6763 ± 0.0232 0.5484 ± 0.00860.3706 ± 0.0014 0.3978 ± 0.00065 0.7265 ± 0.0098 0.5768 ± 0.00290.7122 ± 0.0089 0.5677 ± 0.00300.3723 ± 0.0013 0.3982 ± 0.00140.8232 ± 0.0270 0.6084 ± 0.00840.8312 ± 0.0297 0.6073 ± 0.00910.3761 ± 0.0016 0.4021 ± 0.0008ETTm2 PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.2575 ± 0.0002 0.3158 ± 0.00020.2575 ± 0.0002 0.3158 ± 0.00020.2575 ± 0.0002 0.3158 ± 0.00020.2553 ± 0.0007 0.3157 ± 0.00090.2553 ± 0.0007 0.3157 ± 0.00090.2553 ± 0.0007 0.3157 ± 0.00091 0.2643 ± 0.0004 0.3253 ± 0.00020.2636 ± 0.0006 0.3242 ± 0.00030.2583 ± 0.0003 0.3170 ± 0.00030.2633 ± 0.0011 0.3266 ± 0.00100.2625 ± 0.0009 0.3255 ± 0.00110.2562 ± 0.0008 0.3169 ± 0.00082 0.2762 ± 0.0002 0.3349 ± 0.00050.2742 ± 0.0001 0.3324 ± 0.00030.2596 ± 0.0001 0.3188 ± 0.00040.2757 ± 0.0009 0.3362 ± 0.00130.2736 ± 0.0008 0.3338 ± 0.00120.2577 ± 0.0010 0.3189 ± 0.00103 0.3034 ± 0.0004 0.3547 ± 0.00030.2993 ± 0.0006 0.3506 ± 0.00030.2616 ± 0.0001 0.3214 ± 0.00040.3068 ± 0.0014 0.3584 ± 0.00150.3029 ± 0.0009 0.3546 ± 0.00130.2601 ± 0.0009 0.3216 ± 0.00134 0.3567 ± 0.0020 0.3950 ± 0.00080.3513 ± 0.0026 0.3903 ± 0.00100.2640 ± 0.0002 0.3247 ± 0.00060.3598 ± 0.0020 0.3987 ± 0.00160.3563 ± 0.0013 0.3949 ± 0.00110.2622 ± 0.0010 0.3246 ± 0.00165 0.4233 ± 0.0040 0.4286 ± 0.00170.4155 ± 0.0048 0.4225 ± 0.00200.2672 ± 0.0004 0.3279 ± 0.00060.4294 ± 0.0032 0.4324 ± 0.00210.4246 ± 0.0022 0.4275 ± 0.00150.2659 ± 0.0014 0.3281 ± 0.0016Weather PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.2271 ± 0.0004 0.2656 ± 0.00050.2271 ± 0.0004 0.2656 ± 0.00050.2271 ± 0.0004 0.2656 ± 0.00050.2254 ± 0.0004 0.2647 ± 0.00060.2254 ± 0.0004 0.2647 ± 0.00060.2254 ± 0.0004 0.2647 ± 0.00061 0.2391 ± 0.0012 0.2848 ± 0.00090.2382 ± 0.0012 0.2828 ± 0.00110.2280 ± 0.0004 0.2681 ± 0.00050.2401 ± 0.0009 0.2860 ± 0.00180.2392 ± 0.0012 0.2841 ± 0.00170.2266 ± 0.0001 0.2673 ± 0.00052 0.2644 ± 0.0012 0.3137 ± 0.00140.2617 ± 0.0011 0.3093 ± 0.00140.2298 ± 0.0006 0.2709 ± 0.00070.2680 ± 0.0022 0.3165 ± 0.00250.2661 ± 0.0025 0.3131 ± 0.00270.2288 ± 0.0004 0.2703 ± 0.00073 0.3015 ± 0.0031 0.3398 ± 0.00210.2974 ± 0.0033 0.3331 ± 0.00210.2321 ± 0.0006 0.2740 ± 0.00090.3111 ± 0.0049 0.3443 ± 0.00420.3083 ± 0.0055 0.3392 ± 0.00450.2308 ± 0.0001 0.2736 ± 0.00074 0.3623 ± 0.0036 0.3908 ± 0.00210.3522 ± 0.0034 0.3776 ± 0.00210.2345 ± 0.0004 0.2840 ± 0.00070.3787 ± 0.0104 0.3904 ± 0.00570.3697 ± 0.0120 0.3801 ± 0.00710.2334 ± 0.0008 0.2833 ± 0.00155 0.4547 ± 0.0038 0.4256 ± 0.00260.4373 ± 0.0034 0.4086 ± 0.00260.2387 ± 0.0007 0.2898 ± 0.00090.5062 ± 0.0174 0.4311 ± 0.00750.4868 ± 0.0191 0.4167 ± 0.00910.2365 ± 0.0009 0.2880 ± 0.0015ETTh1 PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.4158 ± 0.0010 0.4293 ± 0.00090.4158 ± 0.0010 0.4293 ± 0.00090.4158 ± 0.0010 0.4293 ± 0.00090.4137 ± 0.0027 0.4279 ± 0.00200.4137 ± 0.0027 0.4279 ± 0.00200.4137 ± 0.0027 0.4279 ± 0.00201 0.4168 ± 0.0009 0.4307 ± 0.00080.4166 ± 0.0010 0.4305 ± 0.00090.4161 ± 0.0009 0.4296 ± 0.00080.4145 ± 0.0026 0.4294 ± 0.00210.4145 ± 0.0026 0.4290 ± 0.00200.4138 ± 0.0026 0.4281 ± 0.00222 0.4215 ± 0.0011 0.4358 ± 0.00090.4209 ± 0.0010 0.4347 ± 0.00080.4160 ± 0.0011 0.4302 ± 0.00100.4193 ± 0.0030 0.4348 ± 0.00200.4189 ± 0.0028 0.4333 ± 0.00200.4141 ± 0.0027 0.4291 ± 0.00223 0.4732 ± 0.0034 0.4667 ± 0.00150.4682 ± 0.0032 0.4622 ± 0.00140.4202 ± 0.0010 0.4336 ± 0.00090.4740 ± 0.0049 0.4668 ± 0.00290.4690 ± 0.0049 0.4621 ± 0.00270.4187 ± 0.0032 0.4326 ± 0.00224 0.5508 ± 0.0052 0.5119 ± 0.00200.5352 ± 0.0054 0.5018 ± 0.00230.4298 ± 0.0011 0.4407 ± 0.00100.5503 ± 0.0048 0.5122 ± 0.00270.5352 ± 0.0044 0.5024 ± 0.00300.4295 ± 0.0039 0.4402 ± 0.00245 0.7185 ± 0.0115 0.5826 ± 0.00310.6878 ± 0.0114 0.5658 ± 0.00330.4424 ± 0.0013 0.4499 ± 0.00120.7239 ± 0.0073 0.5857 ± 0.00410.6982 ± 0.0075 0.5705 ± 0.00500.4438 ± 0.0050 0.4503 ± 0.0026ETTh2 PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.3395 ± 0.0023 0.3860 ± 0.00220.3395 ± 0.0023 0.3860 ± 0.00220.3395 ± 0.0023 0.3860 ± 0.00220.3370 ± 0.0074 0.3837 ± 0.00360.3370 ± 0.0074 0.3837 ± 0.00360.3370 ± 0.0074 0.3837 ± 0.00361 0.3403 ± 0.0024 0.3887 ± 0.00270.3400 ± 0.0025 0.3877 ± 0.00250.3398 ± 0.0024 0.3870 ± 0.00220.3377 ± 0.0069 0.3856 ± 0.00330.3373 ± 0.0070 0.3847 ± 0.00340.3374 ± 0.0073 0.3845 ± 0.00362 0.3485 ± 0.0038 0.3987 ± 0.00370.3490 ± 0.0034 0.3977 ± 0.00320.3392 ± 0.0028 0.3879 ± 0.00290.3436 ± 0.0058 0.3938 ± 0.00260.3446 ± 0.0066 0.3937 ± 0.00290.3361 ± 0.0065 0.3844 ± 0.00333 0.3640 ± 0.0063 0.4108 ± 0.00500.3636 ± 0.0054 0.4084 ± 0.00440.3408 ± 0.0035 0.3902 ± 0.00350.3568 ± 0.0054 0.4040 ± 0.00260.3574 ± 0.0065 0.4032 ± 0.00310.3372 ± 0.0062 0.3862 ± 0.00314 0.3877 ± 0.0055 0.4276 ± 0.00390.3820 ± 0.0051 0.4230 ± 0.00350.3462 ± 0.0040 0.3938 ± 0.00340.3854 ± 0.0047 0.4240 ± 0.00260.3803 ± 0.0059 0.4196 ± 0.00310.3425 ± 0.0065 0.3901 ± 0.00325 0.4143 ± 0.0092 0.4413 ± 0.00540.4083 ± 0.0086 0.4363 ± 0.00510.3476 ± 0.0048 0.3957 ± 0.00400.4203 ± 0.0058 0.4423 ± 0.00330.4142 ± 0.0072 0.4370 ± 0.00350.3429 ± 0.0061 0.3912 ± 0.0027Electricity PatchLGA PatchTSTModel Combined Level Shift Spike Combined Level Shift SpikeMetric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+Severity
+0 0.1614 ± 0.0007 0.2559 ± 0.00060.1614 ± 0.0007 0.2559 ± 0.00060.1614 ± 0.0007 0.2559 ± 0.00060.1600 ± 0.0003 0.2541 ± 0.00040.1600 ± 0.0003 0.2541 ± 0.00040.1600 ± 0.0003 0.2541 ± 0.00041 0.1686 ± 0.0007 0.2645 ± 0.00070.1677 ± 0.0006 0.2632 ± 0.00090.1623 ± 0.0007 0.2574 ± 0.00060.1691 ± 0.0003 0.2648 ± 0.00040.1681 ± 0.0003 0.2634 ± 0.00040.1613 ± 0.0004 0.2560 ± 0.00032 0.1795 ± 0.0007 0.2765 ± 0.00070.1766 ± 0.0005 0.2728 ± 0.00090.1641 ± 0.0009 0.2598 ± 0.00050.1828 ± 0.0010 0.2788 ± 0.00080.1803 ± 0.0012 0.2752 ± 0.00100.1633 ± 0.0004 0.2589 ± 0.00033 0.1928 ± 0.0010 0.2879 ± 0.00100.1887 ± 0.0008 0.2828 ± 0.00100.1654 ± 0.0006 0.2613 ± 0.00060.1993 ± 0.0010 0.2923 ± 0.00090.1963 ± 0.0017 0.2873 ± 0.00100.1651 ± 0.0004 0.2610 ± 0.00054 0.2252 ± 0.0015 0.3166 ± 0.00140.2164 ± 0.0013 0.3072 ± 0.00160.1693 ± 0.0007 0.2662 ± 0.00050.2321 ± 0.0010 0.3212 ± 0.00040.2272 ± 0.0025 0.3132 ± 0.00040.1693 ± 0.0003 0.2664 ± 0.00055 0.2817 ± 0.0043 0.3504 ± 0.00280.2698 ± 0.0044 0.3388 ± 0.00310.1731 ± 0.0005 0.2704 ± 0.00050.2929 ± 0.0032 0.3579 ± 0.00050.2877 ± 0.0055 0.3482 ± 0.00040.1746 ± 0.0001 0.2721 ± 0.0004
+Table 11: Detailed performance comparison of Samformer Ilbert et al. (2024) and PatchSamformer
+variants on the ETTm1 dataset with input length 512 under combined corruptions. PatchSamformer
+denotes the application of patch embedding to the Samformer architecture. While patching induces
+significant vulnerability to noise in the linear Samformer model (SDP), LGA successfully stabilizes
+the architecture, achieving the lowest error rates across varying severity levels.
+ETTm1 H 96 192 336 720Mod.Atten.Metric1 2 3 4 5 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+Samformer
+LGAMSE0.319 0.336 0.510 0.659 0.8020.354 0.369 0.522 0.655 0.7670.378 0.393 0.533 0.653 0.7550.429 0.442 0.564 0.675 0.755MAE0.363 0.378 0.456 0.532 0.5930.382 0.394 0.469 0.539 0.5910.393 0.405 0.477 0.543 0.5920.422 0.432 0.499 0.560 0.600
+SDPMSE0.327 0.348 0.534 0.680 0.8600.357 0.373 0.527 0.660 0.7960.383 0.399 0.540 0.648 0.7760.433 0.448 0.589 0.700 0.804MAE0.366 0.382 0.470 0.546 0.6190.383 0.396 0.474 0.544 0.6020.397 0.410 0.482 0.543 0.5980.426 0.437 0.510 0.569 0.617
+PatchSamformer
+LGAMSE0.332 0.350 0.459 0.577 0.7150.363 0.376 0.469 0.586 0.6730.380 0.392 0.489 0.576 0.6560.433 0.443 0.533 0.613 0.685MAE0.367 0.381 0.437 0.500 0.5610.383 0.394 0.448 0.513 0.5570.396 0.405 0.455 0.505 0.5470.424 0.431 0.482 0.529 0.566
+SDPMSE0.373 0.410 0.852 1.171 1.4650.371 0.401 0.779 0.978 1.2400.403 0.432 0.931 1.154 1.4440.438 0.459 0.786 0.952 1.100MAE0.407 0.430 0.599 0.708 0.7830.408 0.427 0.580 0.656 0.7230.423 0.441 0.628 0.711 0.7760.436 0.450 0.586 0.654 0.688
+D.2 A DDITIONAL EXPERIMENTS ON OTHER MODELS
+To demonstrate the broad applicability of our method beyond standard Transformer architectures,
+we extended our evaluation to Samformer (Ilbert et al., 2024), a state-of-the-art model distinguished
+by its linear complexity and channel-wise attention mechanism. In this experiment, we analyzed
+four model variants on the ETTm1 dataset: the original Samformer, Samformer with LGA, and
+their respective “Patch” versions where the input time series is processed via patch embedding. The
+detailed results across all forecasting horizons and corruption severity levels are summarized in Table
+11.
+20
+==================================================
+
+--- Page 21 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+The experimental results highlight a critical interaction between the model’s structural bias and the
+input representation. A notable finding is the severe vulnerability introduced by patching in linear
+architectures. As observed in the “PatchSamformer + SDP” results, applying patch embedding to
+Samformer leads to catastrophic performance degradation under realistic corruptions. For instance,
+at the shortest horizon ( H = 96 ) with Severity 5, the MSE soars to 1.465. We attribute this
+instability to the architectural design of Samformer; unlike conventional Transformers, it does not
+incorporate a non-linear Feed-Forward Network (FFN) after the attention block. Consequently, the
+high-dimensional linear projections inherent to patching appear to amplify input noise without the
+filtering or buffering effects typically provided by non-linear layers, making the model hypersensitive
+to corruptions.
+However, replacing the standard attention with LGA in this vulnerable architecture completely
+reverses the degradation. The “PatchSamformer + LGA” variant not only recovers from the failure
+observed in the SDP counterpart but also achieves the highest robustness among all compared models.
+For example, at the longest forecasting horizon ( H = 720) under maximum corruption (Severity
+5), LGA reduces the MSE from 1.100 (SDP) to 0.685, significantly outperforming even the original
+Samformer baseline (0.804). This empirical evidence suggests that the local geometry prior of LGA
+acts as a potent regularizer, effectively stabilizing the attention mechanism and preventing overfitting
+to noise, even in high-dimensional feature spaces that lack non-linear protection. These findings
+confirm that LGA is a versatile and critical component for enhancing robustness across diverse
+architectural paradigms.
+D.3 E VALUATION ON SYNTHETIC BENCHMARKS
+To rigorously validate the robustness of PatchLGA under theoretically controlled conditions, we
+conducted additional experiments utilizing the synthetic benchmark framework proposed by Janßen
+et al. Janßen et al. (2025). Unlike TSRBench, which injects corruptions into real-world data, this
+framework generates purely synthetic multivariate time series with parameterizable frequency and
+noise characteristics.
+D.3.1 E XPERIMENTAL SETUP
+Following the protocol in Janßen et al. (2025), we generated synthetic datasets across 7 distinct
+frequency bands, ranging from ‘Very Low’ to ‘Very High’. For each frequency band, we constructed
+a multivariate dataset by combining three signal types (Sine, Smooth Square, and Smooth Sawtooth)
+with five distinct noise types (White, Brownian, Impulse, Trend-dependent, and Seasonal-dependent)
+under four SNR levels.
+Consistent with our main experiments, the models were trained with an input sequence length of 512.
+We evaluated the forecasting performance across four prediction horizons H ∈ {96, 192, 336, 720}.
+This setup allows us to assess the model’s capability to recover intrinsic signal geometry from noisy
+inputs across varying temporal scales.
+D.3.2 R ESULTS
+Table 12 presents the detailed performance comparison between PatchLGA and the PatchTST
+baseline.
+Table 12: MSE comparison of PatchLGA and PatchTST on the synthetic benchmark by Janßen et al.
+(2025). Models were trained with an input length of 512 and evaluated across four prediction horizons
+H ∈ {96, 192, 336, 720}. PatchLGA demonstrates superior accuracy (lower MSE) compared to the
+baseline across most frequency bands.
+Freq. V ery High High Mid-High Mid Low-Mid Low V ery Low
+Attn Type SDP LGA SDP LGA SDP LGA SDP LGA SDP LGA SDP LGA SDP LGA
+Horizon
+96 0.070 0.070 0.106 0.102 0.114 0.111 0.098 0.098 0.091 0.090 0.082 0.080 0.143 0.138
+192 0.070 0.070 0.105 0.101 0.114 0.111 0.098 0.098 0.091 0.090 0.082 0.080 0.143 0.138
+336 0.068 0.068 0.101 0.097 0.111 0.108 0.089 0.089 0.083 0.083 0.085 0.083 0.140 0.136
+720 0.062 0.062 0.090 0.086 0.108 0.105 0.072 0.072 0.066 0.066 0.097 0.095 0.128 0.124
+21
+==================================================
+
+--- Page 22 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+The results indicate that PatchLGA consistently outperforms or matches PatchTST across different
+frequency characteristics and forecasting horizons. Notably, (Janßen et al., 2025) highlight that models
+typically degrade in the‘Very Low’ frequency band because the lookback window may not capture
+complete periodic cycles. In this challenging regime, PatchLGA achieves a distinct improvement
+(e.g., reducing MSE from 0.143 to 0.138 at H = 96 ), suggesting that LGA’s manifold learning
+capability effectively captures intrinsic geometric structures even when temporal periodicity is locally
+ambiguous. Furthermore, LGA maintains superiority in ‘High’ frequency bands, demonstrating its
+versatility in handling rapid fluctuations contaminated by complex noise.
+Combining these findings with our TSRBench results, we conclude that LGA offers robust perfor-
+mance in both real-world data with injected anomalies (TSRBench) and theoretically controlled
+synthetic environments (Janßen et al. (2025)), validating its generalizability.
+D.4 I MPACT OF QUERY SET SELECTION ON PERFORMANCE
+We conduct an ablation study to validate our choice of using a combined query set (Sboth) for training
+the metric prediction network, as detailed in Section 3.4. As shown in Table 13, using the combined
+set of real and synthetic queries consistently outperforms using either set alone, especially under
+severe corruption. This result confirms that a broader query coverage is crucial for robustly learning
+the local geometry of the data manifold.
+Table 13: Ablation study on the query set selection for ETTm1, showing average MSE and MAE
+across all forecasting horizons. Lower values are better, with the best results highlighted in bold.
+Severity 1 2 3 4 5
+Query SetSboth Sgen Sreal Sboth Sgen Sreal Sboth Sgen Sreal Sboth Sgen Sreal Sboth Sgen Sreal
+MSE 0.359 0.3580.360 0.372 0.3710.374 0.5190.524 0.5250.6170.630 0.6260.7340.752 0.744
+MAE 0.3850.387 0.3860.3970.398 0.3980.4680.473 0.4710.5260.534 0.5310.5770.586 0.582
+D.5 V ALIDATION ON REAL -WORLD ANOMALOUS DATA AND THE NECESSITY OF A
+PRINCIPLED BENCHMARK
+To complement the results from our TSRBench, we conducted an additional experiment on a dataset
+containing genuine, unscripted anomalies. This validation aims to demonstrate that the robustness
+of LGA extends beyond controlled, synthetic corruptions to the unpredictable nature of real-world
+operational data.
+For this purpose, we used the AWSCloudWatch dataset from the widely-recognized Numenta
+Anomaly Benchmark (NAB) (Lavin & Ahmad, 2015). This univariate time series represents AWS
+EC2 server CPU utilization and includes labeled periods of naturally occurring anomalous behavior.
+For the experiment, we used the same hyperparameter settings as the ETTm1 experiments, with an
+input sequence length of 1024 and a forecasting horizon of 96.
+Table 14: Performance on the AWS CloudWatch dataset. The lower MAE indicates superior
+performance on real-world anomalous data.
+Model MAE
+PatchTST 7.97
+PatchLGA (Ours) 6.22
+The results in Table 14 show that PatchLGA significantly outperforms the baseline, achieving a 22%
+reduction in MAE. This provides strong empirical evidence that local geometry-aware approach of
+LGA is highly effective in mitigating the impact of genuine, real-world anomalies.
+However, it is important to highlight that conducting such validation for forecasting robustness is
+often infeasible with most publicly available datasets. A fair and rigorous evaluation requires several
+critical conditions to be met:
+22
+==================================================
+
+--- Page 23 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+• A vailability of precise anomaly labels: To verify that a model is robustly forecasting the
+"normal" underlying pattern, the evaluation metric (e.g., MSE, MAE) must be calculated on
+a ground truth that excludes the anomalous periods. Most forecasting benchmarks do not
+provide such granular labels.
+• No time lag in anomaly labels: Even when labels are available, a time lag between the
+actual anomaly occurrence and its timestamp in the data makes it impossible to accurately
+identify which input segments are corrupted and which future segments should be excluded
+from evaluation. This limitation renders most anomaly detection datasets unsuitable for this
+specific validation purpose.
+These strict requirements underscore the challenge of using "in-the-wild" datasets for reproducible
+robustness research. In such scenarios, our TSRBench becomes particularly useful as it enables a
+controlled and systematic evaluation of robustness. By providing clean training data and systemati-
+cally corrupted test sets with known corruption boundaries, TSRBench allows for a comprehensive
+robustness assessment that would be difficult, if not impossible, to achieve with purely real-world
+datasets where the nature, extent, and precise timing of corruptions are unknown and uncontrolled.
+E A DDITIONAL EXPERIMENTAL RESULTS AND ANALYSIS
+In Section 5, we provided averaged MSE results across forecasting horizons to demonstrate the
+robustness of PatchLGA compared to baseline models.This section presents the complete experimental
+results across all datasets, forecasting horizons, and corruption scenarios. These detailed results
+not only validate our main findings but also provide deeper insights into how different architectures
+respond to various levels and types of corruptions under specific forecasting conditions.
+E.1 DETAILED PERFORMANCE ANALYSIS OF LONG -TERM FORECASTING UNDER REALISTIC
+CORRUPTIONS
+We provide the full results of Section 5.1 for each dataset (ETTm1, ETTm2, Weather, ETTh1, ETTh2,
+and Electricity) across all forecasting horizons in Table 15, and 16. These detailed results expand on
+the average performance presented in Table 10.
+The complete dataset results demonstrate several important patterns. While PatchLGA generally
+outperforms baselines across most corruption types, the performance differences vary by corruption
+type. For level shifts, PatchLGA consistently shows superior robustness across most datasets and
+forecasting horizons. For spike corruptions, all models demonstrate relatively less performance
+degradation compared to other corruption types, with both PatchLGA and PatchTST maintaining
+reasonable robustness. However, the most significant finding appears in combined corruption scenar-
+ios (both spikes and level shifts occurring simultaneously). In these realistic cases, PatchTST and
+TimeMixer often exhibit performance degradation considerably exceeding what would be expected
+from the individual corruption types alone, suggesting a compounding effect. PatchLGA, in contrast,
+maintains more consistent performance even under these challenging combined corruptions.
+E.2 E XTENDED EVALUATION OF ATTENTION MECHANISM ROBUSTNESS
+In this section, we provide a more detailed analysis of the effectiveness of LGA across different
+attention mechanisms. Table 17 presents the complete performance results across all forecasting
+horizons and severity levels for three representative attention mechanisms: self-temporal attention
+(PatchTST), cross-temporal attention (CATS), and self-channel attention (iTransformer).
+The detailed results in Table 17 confirm and extend our primary findings. A consistent trend across all
+architectures is that the performance gains from LGA become increasingly pronounced as corruption
+severity increases. For lower severity levels (1-2), the improvements are often modest, but as
+corruptions intensify (levels 3-5), the ability of LGA to adapt to the local data geometry provides a
+clear and substantial advantage. The analysis reveals distinct patterns based on the attention type:
+• Self-Temporal Attention (PatchTST): This mechanism consistently demonstrates the
+greatest performance improvements when enhanced with LGA. The benefits are particularly
+significant for longer forecasting horizons under severe corruption. For example, at severity
+23
+==================================================
+
+--- Page 26 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+level 5 with a 336-step forecasting horizon, LGA reduces the MSE by 16.1% compared to
+SDP attention (from 0.818 to 0.686).
+• Cross-Temporal Attention (CA TS):LGA also enhances the robustness of cross-attention,
+although the improvements are less uniform than in the self-attention case. For instance, at
+a 720-step horizon with severity level 5, LGA improves the MSE by 21.5% (from 1.255 to
+0.985). This aligns with our main analysis that operating on linearly embedded noisy inputs
+can sometimes limit the consistency of performance gains.
+• Self-Channel Attention (iTransformer): For this mechanism, LGA offers modest but
+stable improvements, particularly under high-severity corruption. The linear embedding
+applied to the entire time series, as noted in our main discussion, disrupts some temporal
+local geometry, making the gains less pronounced than with PatchTST. For example, at the
+720-step horizon under severity 5, LGA still provides a 4.0% reduction in MSE (from 1.439
+to 1.382).
+These comprehensive results further validate our conclusion that while LGA is a broadly applicable
+technique that enhances robustness across all tested attention mechanisms, its integration with
+self-temporal attention provides the most consistent and substantial improvements for time series
+forecasting under realistic corruptions.
+Table 17: Detailed performance comparison of different attention mechanisms on the ETTm1 dataset
+with input length 512 under combined corruptions.
+ETTm1 H 96 192 336 720Mod.Atten.Metric1 2 3 4 5 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+PatchTST
+LGAMSE0.297 0.314 0.527 0.657 0.8200.341 0.354 0.504 0.603 0.7220.372 0.385 0.502 0.586 0.6860.425 0.436 0.543 0.623 0.709MAE0.353 0.368 0.456 0.530 0.5940.376 0.388 0.462 0.521 0.5730.392 0.402 0.465 0.516 0.5640.421 0.429 0.488 0.536 0.578
+SDPMSE0.304 0.326 0.625 0.743 0.9440.342 0.357 0.581 0.661 0.8120.370 0.383 0.630 0.692 0.8180.420 0.433 0.622 0.684 0.782MAE0.357 0.377 0.497 0.566 0.6360.378 0.391 0.491 0.542 0.6010.397 0.408 0.519 0.563 0.6110.424 0.432 0.519 0.562 0.604
+CATS
+LGAMSE0.290 0.313 0.624 0.972 1.1380.325 0.340 0.635 0.960 1.0550.357 0.370 0.614 0.856 0.9710.410 0.423 0.774 1.100 0.985MAE0.341 0.358 0.454 0.563 0.6160.365 0.377 0.478 0.582 0.6240.390 0.400 0.492 0.577 0.6240.424 0.432 0.560 0.665 0.647
+SDPMSE0.289 0.313 0.687 0.862 1.0260.327 0.347 0.778 0.949 1.1460.355 0.368 0.711 0.889 0.9790.410 0.426 0.940 1.242 1.255MAE0.344 0.362 0.487 0.559 0.6140.368 0.383 0.521 0.587 0.6450.389 0.400 0.526 0.591 0.6300.422 0.433 0.620 0.724 0.722
+iTrans.
+LGAMSE0.357 0.391 0.718 0.946 1.2220.408 0.440 0.800 1.051 1.3360.455 0.493 0.864 1.105 1.3670.506 0.541 0.894 1.126 1.382MAE0.389 0.412 0.508 0.598 0.6830.413 0.434 0.533 0.626 0.7070.442 0.464 0.562 0.654 0.7320.471 0.490 0.586 0.672 0.746
+SDPMSE0.358 0.390 0.690 0.899 1.1660.394 0.425 0.751 0.965 1.2290.453 0.488 0.853 1.095 1.4010.511 0.558 0.910 1.149 1.439MAE0.387 0.409 0.498 0.585 0.6670.403 0.424 0.516 0.603 0.6830.436 0.457 0.557 0.656 0.7400.472 0.494 0.591 0.680 0.761
+E.3 C OMPREHENSIVE EVALUATION OF INPUT LENGTH IMPACT ON FORECASTING
+ROBUSTNESS
+We examined how varying input sequence length affects forecasting performance under corrupted
+conditions. Here, we present a more detailed analysis with complete results across all input lengths,
+forecasting horizons, and severity levels for the ETTm1 dataset with combined corruptions. Table
+18 provides comprehensive performance metrics for PatchLGA, PatchTST, and TimeMixer with
+input lengths ranging from 192 to 1024 timesteps. These detailed results allow us to examine the
+complex relationship between input context, forecasting horizon, and model architecture under
+various corruption intensities.
+At short input lengths (e.g., 192), TimeMixer is competitive with or occasionally outperforms the trans-
+former models at low corruption severities (level 1), particularly for the shortest forecasting horizon
+(H=96). However, as input length increases, the transformer models, especially PatchLGA, demon-
+strate progressive and significant performance improvements, while the performance of TimeMixer
+tends to stagnate or even deteriorate at longer input lengths (e.g., 720 and 1024). With an input length
+of 512, PatchLGA consistently outperforms both alternatives across all forecasting horizons and
+severity levels, establishing it as the most robust model at this context size. For the longest forecasting
+horizon (720), the impact of input length becomes even more critical. With a 192-timestep input
+at severity level 5, PatchLGA achieves an MSE of 1.140. When the input length is increased to
+512 timesteps, the MSE improves to 0.709, a substantial 37.8% reduction. This demonstrates that
+long-range dependencies, effectively captured by LGA, become increasingly important for distant
+forecasting, especially under severe corruptions.
+These findings have important implications for deploying forecasting models in real-world scenarios.
+While linear models may be adequate for short-term forecasting with limited historical data and
+26
+==================================================
+
+--- Page 27 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+minimal corruption, transformer models with LGA provide substantial benefits when longer historical
+context is available, particularly under challenging corruption conditions.
+Table 18: Detailed performance comparison across different input sequence lengths (192, 336, 512,
+720, 1024) on the ETTm1 dataset with combined corruptions.
+ETTm1 H 96 192 336 720InputModelMetric1 2 3 4 5 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+192
+PatchLGAMSE0.315 0.339 0.579 0.757 0.9240.349 0.369 0.621 0.811 0.9710.375 0.392 0.719 0.939 1.0650.436 0.460 0.767 0.982 1.140MAE0.357 0.376 0.462 0.541 0.6010.380 0.396 0.486 0.567 0.6260.398 0.413 0.516 0.606 0.6580.439 0.455 0.550 0.631 0.695
+PatchTSTMSE0.313 0.342 0.713 0.889 1.1340.350 0.379 0.818 1.020 1.2730.383 0.408 0.852 1.061 1.2860.440 0.464 0.878 1.090 1.336MAE0.355 0.380 0.496 0.576 0.6520.380 0.402 0.536 0.623 0.6950.402 0.420 0.557 0.650 0.7170.436 0.452 0.583 0.673 0.737
+TimeMixerMSE0.312 0.342 0.667 0.857 1.0720.351 0.379 0.785 1.037 1.2380.376 0.401 0.733 0.881 1.1070.439 0.463 0.748 0.886 1.085MAE0.358 0.380 0.483 0.564 0.6350.386 0.407 0.526 0.619 0.6920.400 0.417 0.521 0.591 0.6620.439 0.453 0.546 0.609 0.678
+336
+PatchLGAMSE0.299 0.318 0.589 0.778 0.9390.336 0.352 0.596 0.775 0.8630.371 0.387 0.659 0.846 0.9120.424 0.439 0.656 0.800 0.883MAE0.351 0.369 0.466 0.553 0.6200.375 0.390 0.489 0.570 0.6130.397 0.411 0.519 0.603 0.6380.428 0.439 0.532 0.598 0.633
+PatchTSTMSE0.309 0.338 0.689 0.852 1.1150.343 0.367 0.762 0.925 1.1650.378 0.402 0.752 0.889 1.1380.430 0.459 0.951 1.092 1.329MAE0.358 0.382 0.512 0.591 0.6750.380 0.399 0.536 0.613 0.6850.404 0.422 0.555 0.624 0.7000.434 0.452 0.621 0.689 0.748
+TimeMixerMSE0.307 0.337 0.681 0.870 1.0760.343 0.365 0.660 0.804 0.9770.373 0.392 0.658 0.822 0.9750.428 0.441 0.624 0.744 0.840MAE0.357 0.380 0.498 0.582 0.6580.378 0.395 0.499 0.562 0.6280.400 0.415 0.521 0.596 0.6570.423 0.433 0.512 0.571 0.615
+512
+PatchLGAMSE0.297 0.314 0.527 0.657 0.8200.341 0.354 0.504 0.603 0.7220.372 0.385 0.502 0.586 0.6860.425 0.436 0.543 0.623 0.709MAE0.353 0.368 0.456 0.530 0.5940.376 0.388 0.462 0.521 0.5730.392 0.402 0.465 0.516 0.5640.421 0.429 0.488 0.536 0.578
+PatchTSTMSE0.304 0.326 0.625 0.743 0.9440.342 0.357 0.581 0.661 0.8120.370 0.383 0.630 0.692 0.8180.420 0.433 0.622 0.684 0.782MAE0.357 0.377 0.497 0.566 0.6360.378 0.391 0.491 0.542 0.6010.397 0.408 0.519 0.563 0.6110.424 0.432 0.519 0.562 0.604
+TimeMixerMSE0.307 0.335 0.619 0.769 0.9530.342 0.358 0.537 0.643 0.7400.381 0.396 0.600 0.709 0.8290.436 0.449 0.620 0.745 0.828MAE0.363 0.383 0.490 0.558 0.6290.380 0.393 0.474 0.527 0.5740.407 0.418 0.511 0.567 0.6220.432 0.441 0.524 0.587 0.626
+720
+PatchLGAMSE0.305 0.323 0.495 0.601 0.7310.336 0.350 0.489 0.583 0.6820.376 0.388 0.491 0.571 0.6610.426 0.435 0.526 0.603 0.681MAE0.358 0.373 0.450 0.514 0.5700.377 0.388 0.461 0.518 0.5630.395 0.404 0.464 0.516 0.5600.422 0.429 0.485 0.533 0.573
+PatchTSTMSE0.304 0.324 0.519 0.615 0.7610.340 0.355 0.525 0.603 0.7060.365 0.380 0.587 0.657 0.7450.419 0.431 0.562 0.627 0.711MAE0.358 0.373 0.463 0.521 0.5810.379 0.390 0.472 0.523 0.5690.397 0.406 0.503 0.550 0.5870.423 0.430 0.500 0.544 0.583
+TimeMixerMSE0.332 0.358 0.705 0.940 1.0790.344 0.364 0.590 0.707 0.8310.371 0.384 0.540 0.639 0.7410.456 0.468 0.636 0.745 0.853MAE0.380 0.399 0.549 0.650 0.6970.384 0.398 0.490 0.546 0.6030.396 0.406 0.483 0.536 0.5860.449 0.456 0.536 0.590 0.641
+1024
+PatchLGAMSE0.309 0.326 0.471 0.569 0.6880.355 0.368 0.487 0.578 0.6810.370 0.381 0.488 0.571 0.6520.415 0.423 0.513 0.592 0.666MAE0.360 0.373 0.448 0.510 0.5600.385 0.396 0.463 0.520 0.5680.394 0.403 0.465 0.518 0.5570.419 0.426 0.482 0.532 0.569
+PatchTSTMSE0.303 0.325 0.604 0.696 0.8710.340 0.355 0.539 0.613 0.7180.367 0.381 0.560 0.629 0.7160.410 0.419 0.552 0.620 0.699MAE0.359 0.377 0.503 0.560 0.6200.381 0.392 0.489 0.541 0.5820.398 0.406 0.497 0.544 0.5790.420 0.426 0.501 0.546 0.579
+TimeMixerMSE0.322 0.347 0.594 0.703 0.8530.359 0.375 0.573 0.664 0.7780.399 0.417 0.633 0.753 0.8840.454 0.465 0.645 0.794 0.878MAE0.371 0.388 0.485 0.543 0.6060.392 0.404 0.489 0.540 0.5950.416 0.428 0.527 0.588 0.6440.448 0.455 0.544 0.618 0.651
+E.3.1 C OMPREHENSIVE COMPARISON WITH ALTERNATIVE ROBUST ATTENTION METHODS
+Table 19 presents the detailed comparison between LGA and other robust attention mechanisms across
+all forecasting horizons and severity levels on the ETTm1 dataset with combined corruptions. The
+results reveal that LGA outperforms the alternative approaches in the vast majority of settings, with
+its advantage being particularly notable at higher corruption severities. For short-term forecasting
+(96 horizon) at severity level 5, LGA achieves an MSE of 0.820. This represents a substantial
+28.6% improvement over MoM and a 4.2% improvement over Elliptical attention. This advantage is
+pronounced for medium-term horizons. For instance, on the 336 horizon at severity level 5, the MSE
+of LGA (0.686) is 37.1% lower than MoM and 11.6% lower than Elliptical attention . For long-term
+forecasting (720 horizon), while the competition is closer, LGA still demonstrates clear benefits. At
+severity level 3, for example, MSE of LGA (0.543) is significantly better than SDP and Elliptical
+attention, although slightly higher than MoM in this specific case.
+These comprehensive results confirm our findings that while robust attention mechanisms like MoM
+and Elliptical attention succeed in vision and language tasks, they do not transfer as effectively
+to time series forecasting. LGA, specifically tailored for capturing local geometry of temporal
+structures, yields superior robustness while maintaining computational efficiency comparable to
+standard attention.
+Table 19: Detailed performance comparison of different robust attention methods on the ETTm1
+dataset with input length 512 under combined corruptions.
+ETTm1 H 96 192 336 720Mod.Atten.Metric1 2 3 4 5 1 2 3 4 5 1 2 3 4 5 1 2 3 4 5
+PatchTST
+LGAMSE0.297 0.314 0.527 0.657 0.8200.341 0.354 0.504 0.603 0.7220.372 0.385 0.502 0.586 0.6860.425 0.436 0.543 0.623 0.709MAE0.353 0.368 0.456 0.530 0.5940.376 0.388 0.462 0.521 0.5730.392 0.402 0.465 0.516 0.5640.421 0.429 0.488 0.536 0.578
+SDPMSE0.304 0.326 0.625 0.743 0.9440.342 0.357 0.581 0.661 0.8120.370 0.383 0.630 0.692 0.8180.420 0.433 0.622 0.684 0.782MAE0.357 0.377 0.497 0.566 0.6360.378 0.391 0.491 0.542 0.6010.397 0.408 0.519 0.563 0.6110.424 0.432 0.519 0.562 0.604
+Ellip.MSE0.301 0.319 0.587 0.678 0.8560.342 0.354 0.596 0.626 0.8000.368 0.380 0.659 0.682 0.7760.429 0.444 1.044 1.033 1.090MAE0.356 0.372 0.480 0.537 0.6010.379 0.390 0.493 0.525 0.5890.395 0.404 0.522 0.552 0.5890.434 0.443 0.650 0.676 0.692
+MoMMSE0.325 0.359 0.700 0.941 1.1490.354 0.378 0.725 0.961 1.1300.387 0.407 0.722 0.961 1.0910.435 0.443 0.535 0.620 0.696MAE0.375 0.399 0.530 0.640 0.7140.392 0.409 0.542 0.645 0.7060.409 0.423 0.548 0.652 0.7020.424 0.430 0.485 0.538 0.571
+27
+==================================================
+
+--- Page 28 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+0 5 10 15 20 25 30 35
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2Normalized MSE (0=Clean, 1=Max Noise)
+L0
+L1
+L2
+L3
+L4
+L5
+(a) Severity Spectrum
+L1 L2 L3 L4 L5
+0.002
+0.003
+0.004
+0.005
+0.006
+0.007
+0.008Value of 
+L1 L2 L3 L4 L5
+4
+6
+8
+10
+12
+14
+16Value of p
+p
+L1 L2 L3 L4 L5
+10 4
+10 3
+Value of q (log)
+q (b) Evolution of Noise Parameters (λ, p, q)
+Figure 8: Selection and Analysis of Severity Levels. (a) The severity spectrum obtained by sorting
+the normalized MSE of all 37 parameter configurations. From this full spectrum, we selected five
+representative levels (L1–L5, marked in red) that provide a comprehensive coverage of the difficulty
+range with distinct performance steps. (b) The evolution of noise parameters corresponding to the
+selected levels. The injection frequency ( λ) and segment length ( p) strictly increase, while the
+transition probability (q, log-scale) decreases. This confirms that the increasing severity is driven by
+a systematic intensification of the noise mechanism rather than random permutations.
+F N OISE GENERATION AND PARAMETER SELECTION
+This section provides detailed information on our implementation of corruption functions and
+the experimental process to select appropriate noise parameters. While the main paper presented
+the theoretical foundation, here we explain the practical implementation details and the empirical
+validation of parameter settings.
+F.1 I MPLEMENTATION OF CORRUPTION FUNCTIONS
+We implement realistic corruptions for time series data through a systematic process that combines
+Poisson event generation with extreme value theory for threshold estimation. Algorithm 2 presents
+the complete procedure for injecting both level shift and spike corruptions into time series data. We
+fix the random seed to 2025 across all experiments to ensure reproducible results.
+The GETTHRESHOLDS function in the Algorithm 2 requires detailed explanation, as it implements
+the DSPOT (Drift SPOT) algorithm (Siffer et al., 2017) to estimate extreme value thresholds. DSPOT
+extends the SPOT algorithm by explicitly accounting for distributional drift in time series data. Given
+a significance level q, the algorithm computes time-varying thresholds zq(t) = inf {z : P (X(t) >
+z) < q} that represent the critical values for identifying extreme events at each time point.
+The DSPOT algorithm operates by:
+1. Initializing with a burn-in period to establish baseline statistics
+2. Iteratively updating Generalized Pareto Distribution (GPD) parameters as new data arrives
+3. Computing upper and lower thresholds based on the estimated tail distributions
+4. Adapting to potential distributional changes through drift detection mechanisms
+For our implementation, we maintain consistent DSPOT hyperparameters across all datasets to ensure
+fair comparison and reproducibility. The algorithm returns both upper and lower thresholds that
+are used to determine realistic corruption magnitudes for level shifts and spikes, ensuring that the
+generated corruptions reflect statistically extreme but realistic deviations from normal behavior.
+F.2 P ARAMETER SELECTION PROCESS
+Finding appropriate noise parameters for realistic corruptions requires both theoretical justification
+and empirical validation. Although the theoretical foundation of our noise model is established in
+Section 4, experimental verification is necessary to determine which parameter settings effectively
+induce progressively increasing severity across diverse data distributions.
+To this end, we conducted a comprehensive grid search over 36 different parameter combinations
+(varying λ, p, and q) alongside a clean baseline. We evaluated the original PatchTST on six benchmark
+datasets (ETTh1, ETTh2, ETTm1, ETTm2, Electricity, and Weather) to measure the performance
+28
+==================================================
+
+--- Page 30 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+impact of each configuration. Figure 8(a) illustrates the “Severity Spectrum,” where we sorted all
+configurations based on their average impact on model performance (Normalized MSE) across all
+datasets. This aggregated spectrum reveals the full range of difficulty levels our noise model can
+generate, independent of specific dataset characteristics.
+From this continuous spectrum, we identified five representative severity levels (L1–L5) based on the
+following criteria:
+• Comprehensive Coverage: The selected levels are distributed across the spectrum to cover
+distinct difficulty tiers, ensuring that the benchmark evaluates robustness under diverse
+conditions ranging from mild to extreme.
+• Physically Interpretable Evolution: As shown in Figure 8(b), we ensured that the chosen
+levels correspond to a consistent physical intensification of the noise. Specifically, the
+injection frequency (λ) strictly increases from 0.002 to 0.008, and the transition probability
+(q) decreases logarithmically. This monotonicity guarantees that the degradation in model
+performance is a direct result of the progressively challenging noise mechanics.
+Table 1 summarizes the final parameter sets derived from this process, which are used for all
+subsequent robustness evaluations. Also, we provide the results of these experiments on the ETTm1
+dataset in Table 20, 21, and 22.
+30
+==================================================
+
+--- Page 31 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+Table 20: Performance comparison between PatchLGA and PatchTST on the ETTm1 dataset with
+both level shift and spike corruptions, using input length 512. PatchLGA replaces standard self-
+attention with LGA, consistently showing improved robustness across all scenarios.
+Combined PatchLGA PatchTST
+λ 0.002 0.004 0.008 0.002 0.004 0.008
+H p q MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+96
+6
+1.6 · 10−4 0.297 0.353 0.305 0.361 0.326 0.379 0.304 0.357 0.316 0.370 0.336 0.387
+4 · 10−5 0.330 0.372 0.403 0.408 0.466 0.451 0.370 0.396 0.474 0.446 0.534 0.488
+1 · 10−5 0.346 0.381 0.441 0.425 0.502 0.469 0.399 0.408 0.540 0.470 0.590 0.510
+9
+1.6 · 10−4 0.302 0.356 0.314 0.368 0.344 0.393 0.309 0.361 0.326 0.377 0.353 0.401
+4 · 10−5 0.357 0.385 0.468 0.435 0.566 0.494 0.409 0.413 0.553 0.475 0.650 0.533
+1 · 10−5 0.383 0.397 0.529 0.458 0.620 0.519 0.452 0.429 0.647 0.505 0.727 0.562
+12
+1.6 · 10−4 0.305 0.359 0.320 0.373 0.357 0.404 0.312 0.364 0.331 0.381 0.366 0.410
+4 · 10−5 0.383 0.397 0.527 0.456 0.657 0.530 0.435 0.424 0.625 0.497 0.743 0.566
+1 · 10−5 0.420 0.412 0.611 0.487 0.732 0.561 0.490 0.444 0.741 0.533 0.844 0.602
+15
+1.6 · 10−4 0.307 0.361 0.324 0.377 0.366 0.413 0.314 0.365 0.333 0.384 0.374 0.418
+4 · 10−5 0.407 0.406 0.577 0.473 0.730 0.558 0.463 0.434 0.674 0.514 0.829 0.596
+1 · 10−5 0.455 0.425 0.681 0.510 0.820 0.594 0.530 0.457 0.809 0.554 0.944 0.636
+192
+6
+1.6 · 10−4 0.341 0.376 0.347 0.383 0.360 0.395 0.342 0.378 0.350 0.387 0.363 0.398
+4 · 10−5 0.365 0.393 0.416 0.422 0.459 0.452 0.381 0.403 0.459 0.443 0.489 0.468
+1 · 10−5 0.376 0.399 0.443 0.434 0.485 0.466 0.401 0.412 0.513 0.463 0.526 0.485
+9
+1.6 · 10−4 0.345 0.380 0.354 0.388 0.374 0.406 0.346 0.382 0.357 0.391 0.376 0.409
+4 · 10−5 0.384 0.403 0.462 0.443 0.531 0.488 0.410 0.417 0.522 0.469 0.579 0.508
+1 · 10−5 0.403 0.412 0.507 0.461 0.570 0.507 0.444 0.431 0.602 0.496 0.636 0.532
+12
+1.6 · 10−4 0.347 0.382 0.358 0.392 0.385 0.415 0.349 0.384 0.361 0.395 0.387 0.418
+4 · 10−5 0.403 0.412 0.504 0.462 0.603 0.521 0.434 0.427 0.581 0.491 0.661 0.542
+1 · 10−5 0.431 0.425 0.567 0.487 0.653 0.544 0.483 0.446 0.684 0.524 0.733 0.570
+15
+1.6 · 10−4 0.350 0.383 0.361 0.395 0.391 0.421 0.352 0.385 0.364 0.398 0.394 0.424
+4 · 10−5 0.420 0.420 0.544 0.479 0.663 0.547 0.456 0.437 0.627 0.508 0.730 0.570
+1 · 10−5 0.457 0.436 0.621 0.508 0.722 0.573 0.516 0.458 0.746 0.545 0.812 0.601
+336
+6
+1.6 · 10−4 0.372 0.392 0.380 0.398 0.389 0.408 0.370 0.397 0.378 0.404 0.390 0.414
+4 · 10−5 0.391 0.405 0.434 0.431 0.468 0.457 0.418 0.426 0.499 0.468 0.534 0.495
+1 · 10−5 0.399 0.410 0.455 0.441 0.489 0.469 0.434 0.433 0.554 0.487 0.555 0.505
+9
+1.6 · 10−4 0.376 0.394 0.385 0.402 0.401 0.417 0.374 0.400 0.383 0.408 0.402 0.424
+4 · 10−5 0.405 0.413 0.468 0.448 0.526 0.487 0.453 0.442 0.569 0.496 0.620 0.534
+1 · 10−5 0.419 0.421 0.502 0.463 0.558 0.505 0.483 0.454 0.648 0.521 0.662 0.551
+12
+1.6 · 10−4 0.378 0.396 0.388 0.405 0.411 0.426 0.377 0.402 0.387 0.411 0.412 0.432
+4 · 10−5 0.419 0.421 0.502 0.465 0.586 0.516 0.481 0.454 0.630 0.519 0.692 0.563
+1 · 10−5 0.438 0.431 0.548 0.485 0.627 0.537 0.522 0.471 0.727 0.548 0.749 0.585
+15
+1.6 · 10−4 0.380 0.398 0.391 0.407 0.418 0.431 0.380 0.404 0.390 0.413 0.418 0.437
+4 · 10−5 0.431 0.427 0.533 0.478 0.638 0.540 0.502 0.463 0.669 0.533 0.749 0.586
+1 · 10−5 0.456 0.439 0.590 0.503 0.686 0.564 0.553 0.483 0.777 0.565 0.818 0.611
+720
+6
+1.6 · 10−4 0.425 0.421 0.432 0.426 0.440 0.434 0.420 0.424 0.429 0.429 0.437 0.437
+4 · 10−5 0.442 0.433 0.482 0.457 0.513 0.481 0.447 0.440 0.504 0.471 0.536 0.495
+1 · 10−5 0.449 0.438 0.502 0.467 0.530 0.492 0.457 0.446 0.538 0.484 0.546 0.501
+9
+1.6 · 10−4 0.428 0.423 0.436 0.429 0.451 0.442 0.423 0.426 0.433 0.432 0.448 0.445
+4 · 10−5 0.454 0.440 0.513 0.474 0.568 0.509 0.469 0.451 0.559 0.495 0.612 0.530
+1 · 10−5 0.466 0.447 0.543 0.487 0.593 0.523 0.491 0.461 0.615 0.514 0.630 0.540
+12
+1.6 · 10−4 0.430 0.424 0.438 0.431 0.460 0.449 0.426 0.428 0.437 0.435 0.458 0.453
+4 · 10−5 0.466 0.447 0.543 0.488 0.623 0.536 0.492 0.462 0.622 0.519 0.684 0.562
+1 · 10−5 0.482 0.456 0.584 0.506 0.656 0.553 0.522 0.475 0.699 0.544 0.714 0.575
+15
+1.6 · 10−4 0.432 0.426 0.440 0.433 0.466 0.454 0.429 0.430 0.439 0.437 0.464 0.458
+4 · 10−5 0.477 0.452 0.570 0.500 0.670 0.558 0.511 0.470 0.661 0.534 0.744 0.586
+1 · 10−5 0.497 0.463 0.620 0.522 0.709 0.578 0.549 0.485 0.753 0.564 0.782 0.604
+31
+==================================================
+
+--- Page 32 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+Table 21: Performance comparison between PatchLGA and PatchTST on the ETTm1 dataset with
+level shift corruptions, using input length 512. PatchLGA replaces standard self-attention with LGA,
+consistently showing improved robustness across all scenarios.
+Level Shift PatchLGA PatchTST
+λ 0.002 0.004 0.008 0.002 0.004 0.008
+H p q MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+96
+6
+1.6 · 10−4 0.297 0.352 0.303 0.360 0.325 0.378 0.304 0.356 0.316 0.369 0.336 0.387
+4 · 10−5 0.326 0.370 0.394 0.403 0.454 0.443 0.370 0.394 0.472 0.443 0.538 0.488
+1 · 10−5 0.341 0.377 0.430 0.418 0.491 0.463 0.399 0.407 0.544 0.470 0.597 0.512
+9
+1.6 · 10−4 0.300 0.355 0.312 0.366 0.342 0.391 0.308 0.360 0.325 0.376 0.353 0.400
+4 · 10−5 0.353 0.382 0.455 0.427 0.552 0.484 0.407 0.411 0.547 0.470 0.653 0.531
+1 · 10−5 0.377 0.393 0.512 0.450 0.607 0.511 0.449 0.426 0.644 0.502 0.737 0.563
+12
+1.6 · 10−4 0.303 0.357 0.317 0.370 0.354 0.401 0.311 0.363 0.329 0.379 0.365 0.409
+4 · 10−5 0.378 0.393 0.511 0.447 0.641 0.519 0.432 0.421 0.616 0.490 0.746 0.563
+1 · 10−5 0.413 0.407 0.592 0.477 0.716 0.552 0.485 0.440 0.737 0.528 0.853 0.601
+15
+1.6 · 10−4 0.305 0.359 0.320 0.373 0.363 0.409 0.313 0.364 0.331 0.381 0.374 0.416
+4 · 10−5 0.401 0.402 0.560 0.463 0.707 0.545 0.459 0.430 0.664 0.504 0.830 0.592
+1 · 10−5 0.446 0.419 0.661 0.499 0.802 0.584 0.523 0.451 0.807 0.547 0.954 0.634
+192
+6
+1.6 · 10−4 0.340 0.376 0.345 0.382 0.358 0.393 0.341 0.378 0.349 0.386 0.363 0.398
+4 · 10−5 0.361 0.390 0.408 0.417 0.448 0.445 0.380 0.401 0.457 0.440 0.487 0.466
+1 · 10−5 0.372 0.395 0.435 0.428 0.475 0.460 0.400 0.411 0.516 0.463 0.531 0.486
+9
+1.6 · 10−4 0.344 0.379 0.351 0.386 0.371 0.403 0.345 0.381 0.355 0.390 0.376 0.408
+4 · 10−5 0.380 0.399 0.452 0.437 0.518 0.480 0.409 0.415 0.517 0.465 0.578 0.506
+1 · 10−5 0.398 0.408 0.495 0.454 0.559 0.500 0.442 0.428 0.602 0.494 0.645 0.533
+12
+1.6 · 10−4 0.346 0.380 0.356 0.390 0.382 0.412 0.348 0.383 0.359 0.394 0.386 0.417
+4 · 10−5 0.398 0.408 0.491 0.455 0.587 0.511 0.432 0.425 0.574 0.486 0.657 0.538
+1 · 10−5 0.424 0.420 0.552 0.479 0.639 0.535 0.480 0.442 0.684 0.522 0.742 0.570
+15
+1.6 · 10−4 0.349 0.382 0.358 0.393 0.389 0.418 0.351 0.384 0.362 0.396 0.394 0.423
+4 · 10−5 0.415 0.415 0.530 0.470 0.643 0.536 0.454 0.434 0.618 0.501 0.725 0.565
+1 · 10−5 0.449 0.430 0.605 0.499 0.707 0.564 0.512 0.454 0.746 0.541 0.823 0.601
+336
+6
+1.6 · 10−4 0.372 0.391 0.378 0.397 0.387 0.406 0.370 0.397 0.377 0.404 0.390 0.414
+4 · 10−5 0.388 0.403 0.427 0.426 0.457 0.449 0.416 0.424 0.499 0.466 0.532 0.493
+1 · 10−5 0.395 0.407 0.446 0.436 0.479 0.462 0.432 0.431 0.561 0.488 0.560 0.505
+9
+1.6 · 10−4 0.375 0.394 0.383 0.400 0.399 0.415 0.374 0.400 0.382 0.407 0.402 0.424
+4 · 10−5 0.402 0.410 0.459 0.443 0.513 0.478 0.452 0.440 0.566 0.492 0.618 0.531
+1 · 10−5 0.414 0.417 0.490 0.457 0.546 0.496 0.481 0.452 0.652 0.521 0.673 0.552
+12
+1.6 · 10−4 0.378 0.395 0.386 0.403 0.409 0.423 0.377 0.402 0.386 0.410 0.412 0.431
+4 · 10−5 0.415 0.417 0.490 0.458 0.570 0.506 0.478 0.452 0.624 0.514 0.688 0.559
+1 · 10−5 0.432 0.426 0.533 0.477 0.613 0.528 0.519 0.468 0.730 0.547 0.761 0.586
+15
+1.6 · 10−4 0.380 0.396 0.388 0.405 0.415 0.429 0.380 0.404 0.388 0.412 0.419 0.437
+4 · 10−5 0.426 0.423 0.519 0.471 0.619 0.529 0.500 0.461 0.660 0.526 0.745 0.582
+1 · 10−5 0.448 0.434 0.573 0.494 0.670 0.554 0.550 0.480 0.778 0.563 0.831 0.612
+720
+6
+1.6 · 10−4 0.425 0.420 0.431 0.425 0.438 0.432 0.420 0.424 0.428 0.428 0.435 0.436
+4 · 10−5 0.439 0.430 0.476 0.453 0.503 0.473 0.444 0.438 0.500 0.467 0.527 0.489
+1 · 10−5 0.445 0.434 0.494 0.462 0.520 0.484 0.453 0.443 0.537 0.481 0.541 0.496
+9
+1.6 · 10−4 0.427 0.422 0.435 0.428 0.449 0.440 0.423 0.426 0.432 0.431 0.447 0.444
+4 · 10−5 0.451 0.437 0.506 0.468 0.556 0.501 0.466 0.449 0.555 0.491 0.603 0.523
+1 · 10−5 0.461 0.443 0.533 0.481 0.582 0.515 0.487 0.458 0.614 0.511 0.630 0.536
+12
+1.6 · 10−4 0.430 0.423 0.437 0.430 0.458 0.447 0.426 0.428 0.436 0.434 0.457 0.452
+4 · 10−5 0.462 0.443 0.533 0.482 0.609 0.526 0.488 0.459 0.616 0.514 0.673 0.554
+1 · 10−5 0.476 0.451 0.571 0.499 0.643 0.544 0.518 0.471 0.699 0.542 0.714 0.572
+15
+1.6 · 10−4 0.431 0.425 0.438 0.431 0.464 0.452 0.429 0.429 0.437 0.435 0.464 0.457
+4 · 10−5 0.471 0.448 0.558 0.493 0.652 0.547 0.507 0.467 0.653 0.528 0.731 0.579
+1 · 10−5 0.490 0.457 0.605 0.514 0.694 0.568 0.545 0.482 0.749 0.559 0.785 0.601
+32
+==================================================
+
+--- Page 33 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+Table 22: Performance comparison between PatchLGA and PatchTST on the ETTm1 dataset with
+spike corruptions, using input length 512. PatchLGA replaces standard self-attention with LGA,
+consistently showing improved robustness across all scenarios.
+Spike PatchLGA PatchTST
+λ 0.002 0.004 0.008 0.002 0.004 0.008
+H p q MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE
+96
+6
+1.6 · 10−4 0.289 0.345 0.289 0.345 0.290 0.347 0.293 0.346 0.293 0.347 0.294 0.348
+4 · 10−5 0.291 0.347 0.296 0.350 0.301 0.356 0.296 0.349 0.301 0.354 0.306 0.358
+1 · 10−5 0.293 0.348 0.297 0.351 0.302 0.356 0.297 0.350 0.301 0.354 0.306 0.359
+9
+1.6 · 10−4 0.289 0.345 0.289 0.346 0.291 0.348 0.293 0.346 0.294 0.348 0.295 0.350
+4 · 10−5 0.292 0.348 0.298 0.352 0.305 0.359 0.298 0.351 0.305 0.357 0.311 0.363
+1 · 10−5 0.294 0.349 0.300 0.353 0.306 0.360 0.299 0.352 0.307 0.357 0.312 0.364
+12
+1.6 · 10−4 0.289 0.345 0.290 0.346 0.292 0.350 0.293 0.347 0.294 0.348 0.296 0.351
+4 · 10−5 0.293 0.349 0.302 0.354 0.309 0.363 0.301 0.353 0.310 0.361 0.318 0.369
+1 · 10−5 0.296 0.351 0.304 0.356 0.312 0.365 0.303 0.356 0.314 0.362 0.320 0.370
+15
+1.6 · 10−4 0.289 0.345 0.291 0.347 0.293 0.350 0.293 0.347 0.295 0.350 0.297 0.352
+4 · 10−5 0.294 0.349 0.304 0.357 0.314 0.366 0.303 0.355 0.316 0.365 0.324 0.374
+1 · 10−5 0.297 0.352 0.308 0.359 0.316 0.368 0.307 0.358 0.320 0.368 0.326 0.375
+192
+6
+1.6 · 10−4 0.333 0.370 0.334 0.371 0.335 0.372 0.335 0.372 0.335 0.372 0.336 0.373
+4 · 10−5 0.336 0.372 0.339 0.375 0.344 0.380 0.337 0.373 0.341 0.377 0.344 0.379
+1 · 10−5 0.337 0.373 0.340 0.376 0.345 0.380 0.338 0.374 0.342 0.377 0.345 0.380
+9
+1.6 · 10−4 0.333 0.370 0.334 0.371 0.335 0.373 0.335 0.372 0.336 0.373 0.336 0.374
+4 · 10−5 0.336 0.373 0.341 0.376 0.346 0.382 0.338 0.374 0.343 0.378 0.346 0.382
+1 · 10−5 0.338 0.374 0.342 0.377 0.347 0.383 0.339 0.375 0.344 0.379 0.347 0.383
+12
+1.6 · 10−4 0.333 0.371 0.335 0.372 0.335 0.373 0.335 0.372 0.336 0.373 0.337 0.374
+4 · 10−5 0.337 0.374 0.343 0.378 0.348 0.384 0.339 0.375 0.346 0.380 0.349 0.385
+1 · 10−5 0.339 0.375 0.345 0.379 0.350 0.385 0.341 0.377 0.348 0.382 0.351 0.386
+15
+1.6 · 10−4 0.333 0.371 0.335 0.372 0.335 0.373 0.335 0.372 0.337 0.374 0.337 0.375
+4 · 10−5 0.338 0.375 0.345 0.380 0.351 0.386 0.341 0.376 0.349 0.383 0.353 0.387
+1 · 10−5 0.341 0.376 0.347 0.382 0.353 0.387 0.344 0.379 0.352 0.385 0.354 0.389
+336
+6
+1.6 · 10−4 0.366 0.387 0.367 0.388 0.368 0.389 0.364 0.392 0.364 0.392 0.365 0.393
+4 · 10−5 0.369 0.389 0.372 0.392 0.376 0.396 0.366 0.394 0.370 0.396 0.373 0.399
+1 · 10−5 0.370 0.390 0.373 0.393 0.378 0.397 0.367 0.395 0.371 0.397 0.374 0.400
+9
+1.6 · 10−4 0.367 0.387 0.368 0.388 0.369 0.390 0.364 0.393 0.365 0.393 0.366 0.394
+4 · 10−5 0.370 0.390 0.373 0.392 0.378 0.397 0.367 0.395 0.372 0.398 0.376 0.402
+1 · 10−5 0.371 0.391 0.375 0.394 0.380 0.399 0.369 0.396 0.373 0.398 0.376 0.402
+12
+1.6 · 10−4 0.367 0.387 0.368 0.388 0.369 0.390 0.365 0.393 0.365 0.393 0.366 0.394
+4 · 10−5 0.371 0.390 0.375 0.394 0.379 0.399 0.368 0.396 0.375 0.400 0.379 0.405
+1 · 10−5 0.372 0.392 0.377 0.395 0.381 0.401 0.371 0.398 0.377 0.401 0.379 0.405
+15
+1.6 · 10−4 0.367 0.388 0.369 0.389 0.368 0.390 0.365 0.393 0.366 0.394 0.365 0.394
+4 · 10−5 0.372 0.391 0.377 0.395 0.381 0.400 0.370 0.396 0.378 0.403 0.382 0.408
+1 · 10−5 0.374 0.393 0.379 0.397 0.383 0.402 0.373 0.399 0.381 0.404 0.382 0.408
+720
+6
+1.6 · 10−4 0.420 0.417 0.421 0.417 0.422 0.418 0.416 0.421 0.416 0.421 0.417 0.421
+4 · 10−5 0.423 0.419 0.425 0.421 0.429 0.425 0.419 0.422 0.422 0.424 0.427 0.427
+1 · 10−5 0.424 0.420 0.426 0.422 0.431 0.426 0.420 0.423 0.424 0.425 0.429 0.429
+9
+1.6 · 10−4 0.420 0.417 0.421 0.417 0.422 0.419 0.416 0.421 0.416 0.421 0.418 0.422
+4 · 10−5 0.423 0.419 0.426 0.421 0.430 0.426 0.419 0.423 0.423 0.425 0.428 0.428
+1 · 10−5 0.425 0.420 0.428 0.423 0.432 0.428 0.421 0.424 0.425 0.426 0.431 0.430
+12
+1.6 · 10−4 0.420 0.417 0.421 0.417 0.422 0.419 0.416 0.421 0.417 0.421 0.418 0.422
+4 · 10−5 0.424 0.420 0.427 0.423 0.431 0.427 0.420 0.423 0.425 0.426 0.430 0.430
+1 · 10−5 0.426 0.421 0.429 0.424 0.434 0.429 0.422 0.425 0.427 0.428 0.433 0.432
+15
+1.6 · 10−4 0.421 0.417 0.422 0.418 0.422 0.419 0.416 0.421 0.417 0.421 0.418 0.422
+4 · 10−5 0.425 0.420 0.429 0.424 0.433 0.428 0.421 0.424 0.427 0.428 0.432 0.431
+1 · 10−5 0.427 0.422 0.432 0.426 0.435 0.430 0.423 0.426 0.430 0.430 0.435 0.433
+33
+==================================================
+
+--- Page 34 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+G V ISUALIZATION OF TSRB ENCH
+To provide a comprehensive visual understanding of TSRBench, we present a series of visualizations
+that illustrate the effects of different corruption types across various severity levels and datasets.
+These visualizations serve as a qualitative complement to the quantitative results presented in the
+main paper. Figures 9, 10, 11, 12, 13, and 14 display examples of time series data from our six
+benchmark datasets (ETTh1, ETTh2, ETTm1, ETTm2, Weather, and Electricity) under realistic
+corruptions at varying severity levels. Each figure shows level shift corruptions (left column) and
+spike corruptions (right column), demonstrating how these corruptions manifest differently across
+diverse time series data types.
+As the severity level increases from 1 to 5, we can observe the progressive intensification of both
+corruption types. For spike corruptions, higher severity levels not only produce spikes with greater
+amplitudes but also increase their frequency throughout the time series. This creates challenging
+scenarios where models must distinguish between legitimate data points and anomalous spikes that
+occur more frequently and with larger magnitudes. Level shift corruptions, meanwhile, exhibit
+two key patterns as severity increases: first, the magnitude of the shifts becomes more pronounced,
+creating larger deviations from the original signal; second, the duration of these shifts becomes
+notably wider, meaning the corrupted signal remains in an altered state for longer periods. This
+temporal extension of corruption is particularly challenging for forecasting models that rely on
+consistent patterns.
+These visualizations highlight the statistically grounded nature of our corruption generation process.
+Rather than arbitrary or manual corruption placement, TSRBench simulates realistic corruptions that
+preserve the underlying data distribution while introducing controlled perturbations. This approach
+allows for systematic evaluation of model robustness under conditions that closely resemble real-
+world scenarios where data quality cannot be guaranteed. The progressive severity scale enables
+researchers to assess not only whether models are robust to corruptions but also to quantify at which
+corruption intensity their performance begins to degrade significantly, providing valuable insights for
+deploying these models in practical applications.
+H U SE OF LARGE LANGUAGE MODELS
+In the preparation of this paper, a Large Language Model (LLM) was utilized as a general-purpose
+writing-assistance tool. The role of the LLM was limited to improving the quality of the prose,
+including enhancing clarity, correcting grammatical errors, and refining sentence structure to ensure
+the manuscript was articulate and readable.
+34
+==================================================
+
+--- Page 35 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+5
+0
+5
+10
+15
+20
+25
+Severity Level 1
+Level Shift
+5
+0
+5
+10
+15
+20
+25
+Exponential Spike
+5
+0
+5
+10
+15
+20
+25
+Severity Level 2
+5
+0
+5
+10
+15
+20
+25
+5
+0
+5
+10
+15
+20
+25
+Severity Level 3
+5
+0
+5
+10
+15
+20
+25
+5
+0
+5
+10
+15
+20
+25
+Severity Level 4
+5
+0
+5
+10
+15
+20
+25
+0 100 200 300 400 500
+5
+0
+5
+10
+15
+20
+25
+Severity Level 5
+0 100 200 300 400 500
+5
+0
+5
+10
+15
+20
+25
+Figure 9: ETTh1 dataset with level shift corruptions (left) and spike corruptions (right) across severity
+levels 1-5. Each row represents a different severity level, demonstrating the progressive intensification
+of realistic corruptions in the time series data.
+35
+==================================================
+
+--- Page 36 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+20
+25
+30
+35
+40
+45
+50Severity Level 1
+Level Shift
+20
+25
+30
+35
+40
+45
+50
+Exponential Spike
+20
+25
+30
+35
+40
+45
+50Severity Level 2
+20
+25
+30
+35
+40
+45
+50
+20
+25
+30
+35
+40
+45
+50Severity Level 3
+20
+25
+30
+35
+40
+45
+50
+20
+25
+30
+35
+40
+45
+50Severity Level 4
+20
+25
+30
+35
+40
+45
+50
+0 100 200 300 400 500
+20
+25
+30
+35
+40
+45
+50Severity Level 5
+0 100 200 300 400 500
+20
+25
+30
+35
+40
+45
+50
+Figure 10: ETTh2 dataset with level shift corruptions (left) and spike corruptions (right) across
+severity levels 1-5. Each row represents a different severity level, demonstrating the progressive
+intensification of realistic corruptions in the time series data.
+36
+==================================================
+
+--- Page 37 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+5
+10
+15
+20
+25
+30Severity Level 1
+Level Shift
+5
+10
+15
+20
+25
+30
+Exponential Spike
+5
+10
+15
+20
+25
+30Severity Level 2
+5
+10
+15
+20
+25
+30
+5
+10
+15
+20
+25
+30Severity Level 3
+5
+10
+15
+20
+25
+30
+5
+10
+15
+20
+25
+30Severity Level 4
+5
+10
+15
+20
+25
+30
+0 100 200 300 400 500
+5
+10
+15
+20
+25
+30Severity Level 5
+0 100 200 300 400 500
+5
+10
+15
+20
+25
+30
+Figure 11: ETTm1 dataset with level shift corruptions (left) and spike corruptions (right) across
+severity levels 1-5. Each row represents a different severity level, demonstrating the progressive
+intensification of realistic corruptions in the time series data.
+37
+==================================================
+
+--- Page 38 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+20
+25
+30
+35
+40
+45
+50
+55Severity Level 1
+Level Shift
+20
+25
+30
+35
+40
+45
+50
+55
+Exponential Spike
+20
+25
+30
+35
+40
+45
+50
+55Severity Level 2
+20
+25
+30
+35
+40
+45
+50
+55
+20
+25
+30
+35
+40
+45
+50
+55Severity Level 3
+20
+25
+30
+35
+40
+45
+50
+55
+20
+25
+30
+35
+40
+45
+50
+55Severity Level 4
+20
+25
+30
+35
+40
+45
+50
+55
+0 100 200 300 400 500
+20
+25
+30
+35
+40
+45
+50
+55Severity Level 5
+0 100 200 300 400 500
+20
+25
+30
+35
+40
+45
+50
+55
+Figure 12: ETTm2 dataset with level shift corruptions (left) and spike corruptions (right) across
+severity levels 1-5. Each row represents a different severity level, demonstrating the progressive
+intensification of realistic corruptions in the time series data.
+38
+==================================================
+
+--- Page 39 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Severity Level 1
+Level Shift
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Exponential Spike
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Severity Level 2
+4
+2
+0
+2
+4
+6
+8
+10
+12
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Severity Level 3
+4
+2
+0
+2
+4
+6
+8
+10
+12
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Severity Level 4
+4
+2
+0
+2
+4
+6
+8
+10
+12
+0 100 200 300 400 500
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Severity Level 5
+0 100 200 300 400 500
+4
+2
+0
+2
+4
+6
+8
+10
+12
+Figure 13: Weather dataset with level shift corruptions (left) and spike corruptions (right) across
+severity levels 1-5. Each row represents a different severity level, demonstrating the progressive
+intensification of realistic corruptions in the time series data.
+39
+==================================================
+
+--- Page 40 (Table 2 / Severity) ---
+Published as a conference paper at ICLR 2026
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000Severity Level 1
+Level Shift
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000
+Exponential Spike
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000Severity Level 2
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000Severity Level 3
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000Severity Level 4
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000
+0 100 200 300 400 500
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000Severity Level 5
+0 100 200 300 400 500
+2250
+2500
+2750
+3000
+3250
+3500
+3750
+4000
+Figure 14: Electricity dataset with level shift corruptions (left) and spike corruptions (right) across
+severity levels 1-5. Each row represents a different severity level, demonstrating the progressive
+intensification of realistic corruptions in the time series data.
+40
+==================================================
+
+=== LGA Definition & Math Sections ===
+
+--- Page 3 (Methodology) ---
+Published as a conference paper at ICLR 2026
+principle (Jerrum et al., 1986; Humbert et al., 2022) into RKDE to further improve computational
+efficiency. Nielsen et al. (2024) constructs hyper-ellipsoidal neighborhoods around queries to increase
+attention weights in contextually important directions. However, these approaches either rely on
+global kernel assumptions or do not explicitly capture the local geometric structure of the data.
+Robustness benchmarks under Realistic Corruptions. Robustness benchmarks are critical
+for evaluating model performance under contaminated inputs. In computer vision, ImageNet-C
+(Hendrycks & Dietterich, 2019) set a standard by testing models against various common corruptions
+at multiple severity levels. Similar efforts exist in natural language processing (McCoy et al., 2020;
+Nie et al., 2020). In contrast, the time series domain has largely focused on robustness against syn-
+thetic adversarial attacks (Liu et al., 2023; Lin et al., 2024), which target model-specific vulnerabilities
+but may not reflect naturally occurring data degradation.
+Recent studies, however, emphasize the importance of evaluating models against realistic corruptions
+that mirror real-world phenomena (Cheng et al., 2024). Real-world time series often exhibit both
+minor point-wise disturbances and structured anomalies that signal meaningful, event-driven changes,
+such as random spikes from sensor limitations or sustained level shifts from hardware malfunctions
+(Si et al., 2024; Schmidl et al., 2022). Despite the need, a standardized benchmark for such realistic
+corruptions in time series remains a significant gap, underscoring the need for a systematic framework
+to evaluate model robustness under diverse operational conditions.
+3 L OCAL GEOMETRY ATTENTION
+4
+ 2
+ 0 2
+2
+0
+2
+Keys (period=3)
+Queries (period=3)
+Figure 2: Key-query embed-
+dings in PatchTST showing natu-
+ral clustering of periodic patterns.
+We proposeLocal Geometry Attention (LGA), a novel approach
+that adapts to the intrinsic geometric structure of time series data.
+Unlike standard attention mechanisms that use dot product sim-
+ilarity in Euclidean space, LGA computes attention scores using
+query-specific distance metrics derived from Gaussian process
+theory. This approach captures the local geometric structure of
+the data manifold, enabling more effective attention mechanisms
+that reflect the inherent geometry of periodic temporal patterns,
+as illustrated in Figure 2, where similar periodic patterns naturally
+form clusters.
+In this section, we build LGA from the ground up. We start
+by developing its theoretical foundation in three parts: we first
+establish a local kernel-covariance formulation to capture data
+geometry in Section 3.1; we then connect this to local Gaussian processes to estimate data density
+in Section 3.2; and finally, we derive the geometry-aware attention scoring function in Section 3.3.
+With the theory established, Section 3.4 then presents the practical implementation, detailing how
+this theoretically-grounded function is efficiently approximated for use in modern architectures.
+3.1 L OCAL GEOMETRY ESTIMATION VIA KERNEL -C OVARIANCE
+To capture the local geometric structure of time series data, we employ local Gaussian processes
+instead of traditional global Gaussian processes. We first establish a local kernel-covariance formula-
+tion that naturally extends to a local Gaussian process framework, providing a principled foundation
+for modeling the intrinsic geometry of time series and informing our attention mechanism.
+Local Kernel–covariance. First, we define linear mappings that project an input x ∈ Rn into key
+and query representations, k ∈ Rd and q ∈ Rd, respectively. For a set of inputs {x1, . . . , xT } and a
+target point x∗, we obtain key vectors {k1, . . . ,kT } and a query vector q∗.
+We then define a feature mapping ϕ : Rd → Wbased on the difference between keys and the query:
+ϕ(ki) = ki − q∗. The design matrix Φ is constructed as:
+Φ(x∗) = [ϕ(k1), · · ·, ϕ(kT )]⊤ .
+3
+==================================================
+
+--- Page 4 (Methodology) ---
+Published as a conference paper at ICLR 2026
+The local kernel-covariance matrix for the target point x∗ is formed as a weighted sum of outer
+products:
+Σ(x∗) = Φ(x∗)⊤W(x∗)Φ(x∗) =
+TX
+i=1
+ωi(x∗) (ki − q∗)(ki − q∗)⊤. (1)
+Here, W(x∗) is a T × T diagonal matrix with weights ωi(x∗) on its diagonal. These weights are
+computed using a kernel function K, which measures the similarity between each key ki and the
+query q∗:
+ωi(x∗) = K(ki, q∗)PT
+j=1 K(kj, q∗)
+.
+In our implementation, we use a Gaussian kernel for K:
+K(ki, q∗) = exp
+ 
+−∥ki − q∗∥2/2h2
+,
+where h is the bandwidth parameter. More generally, K can be any kernel function, such as the
+compactly supported tri-cube or Epanechnikov kernels. Our local kernel-covariance matrix, as defined
+in Equation (1), thus employs decaying kernel weights to approximate the inverse metric tensor on
+the data manifold. As demonstrated by Berry & Sauer (2016), this formulation effectively captures
+the local geometry of the underlying manifold.
+3.2 D ENSITY ESTIMATION WITH LOCAL GAUSSIAN PROCESSES
+Now consider a local Gaussian process regression model where all observed outputs are zero (yi = 0
+for all i), based on the local kernel covariance centered at a target pointx∗. The model takes the form:
+y = f (x) + ε, where f (x) ∼ GP (0, k(x, x′)) (2)
+Here, the noise term ε is assumed to be i.i.d. Gaussian, ε ∼ N(0, σ2), and k(x, x′) is the GP
+covariance kernel.
+For a target point x∗ (which maps to query q∗), the local GP model is established. The predictive
+distribution for the latent function value at a new point x (which maps to key k) has a zero mean.
+Reusing the feature map ϕ(k) = k − q∗, the predictive variance is given by:
+σ2
+q∗ (k) = ϕ(k)⊤G(x∗)ϕ(k) = (k − q∗)⊤G(x∗)(k − q∗) (3)
+where the matrix G(x∗) is defined as:
+G(x∗) = σ2[Σ(x∗) + σ2I]−1. (4)
+Crucially, the predictive variance is smaller in regions dense with data points (keys) and larger in
+sparse regions (Williams & Rasmussen, 2006; Kim & Lee, 2007). This means the negative predictive
+variance, −σ2
+q∗ (k), can serve as a surrogate for the data density around q∗ as experienced by k.
+This insight allows us to use the variance function as a principled, data-driven way to measure the
+similarity between points on the data manifold. We provide a formal theoretical justification for
+this approach in the Appendix A.2. Building on this connection, we next reformulate the attention
+mechanism itself.
+3.3 G EOMETRY -AWARE ATTENTION SCORING
+Building upon this local Gaussian process framework, we reformulate the attention score using the
+negative predictive variance. The similarity score between a query q and a key k is defined as:
+score(q, k) = −(k − q)⊤G(q)(k − q) (5)
+where G(q) is the local geometry matrix estimated at the query’s location. This score function
+computes the negative squared Mahalanobis distance, where the metric is adapted to the local data
+geometry. The softmax function then produces the final attention weights.
+This geometry-aware scoring function forms the core of our Local Geometry Attention (LGA)
+mechanism. By leveraging the local geometric information encoded in the matrix G(q), our approach
+moves beyond simple Euclidean similarity to better capture relationships between time series elements
+along the data manifold. This leads to more effective attention allocation for complex temporal
+patterns, as demonstrated in Figure 3.
+4
+==================================================
+
+--- Page 5 (Methodology) ---
+Published as a conference paper at ICLR 2026
+0 100 200 300 400 500
+2
+1
+0
+1
+2
+3
+4
+(a) An input time series with both natural (blue-
+shaded) and artificial (red-shaded) noisy regions
+Avg. Weight
+Comparison of Attention Weights
+Standard Attn
+Local Geometry Attn
+Attention Weights of Standard Attn
+0 10 20 30 40 50 60
+Key Patches
+Attention Weights of Local Geometry Attn
+Query Patches
+(b) Comparison of attention weights between
+standard attention and LGA
+Figure 3: Effectiveness of LGA on a real-world time series with corruptions. The input series in (a)
+is corrupted with noise. (b) shows that while standard attention is distracted by these noisy regions,
+LGA successfully diminishes their influence. This robust handling of noise enables LGA to achieve a
+superior MSE of 0.533, compared to 0.616 from standard attention.
+Connection to Riemannian Geometry. The proposed geometry-aware attention scoring in Equa-
+tion (5) also has a strong theoretical interpretation within the framework of Riemannian geometry.
+On a data manifold M equipped with a Riemannian metric tensor G, the distance between two points
+q, k ∈ Mis given by the geodesic distance, dist(q, k) = inf γ
+R 1
+0
+p
+γ′(t)⊤G(γ(t))γ′(t) dt, where
+the infimum is taken over all smooth paths γ connecting q and k. While computationally intractable,
+for a key k in a small neighborhood of a query q, the squared geodesic distance can be approximated
+by a first-order Taylor expansion:
+dist(q, k)2 ≈ (k − q)⊤G(q)(k − q).
+This expression reveals that the local Riemannian geometry induces a Mahalanobis distance. Con-
+sequently, our proposed attention score, score(q, k) = −(k − q)⊤G(q)(k − q), can be interpreted
+as the negative squared geodesic distance approximation. In this view, the matrix G(q) derived
+from our local Gaussian process framework in Equation (4) serves as an empirical estimate of the
+local Riemannian metric tensor at the query point, allowing the attention mechanism to adapt to the
+intrinsic curvature of the data manifold.
+This formulation provides a theoretically sound, geometry-aware attention mechanism. However, the
+direct computation of the metric tensor G(q) for every query, which requires access to the full set
+of keys as per Equation (4), is computationally prohibitive for large-scale models. Addressing this
+computational challenge requires an efficient implementation.
+3.4 I MPLEMENTATION OF LOCAL GEOMETRY ATTENTION
+To make Local Geometry Attention (LGA) computationally feasible, we train a small network, fθ, to
+directly approximate the metric tensor G(q) from a given query vector q:
+G(q) ≈ fθ(q) (6)
+This is motivated by the insight that a position of query on the data manifold implicitly defines its
+local geometric structure. As universal function approximators, neural networks are well-suited
+to learn this mapping. For each attention head, we employ a separate network fθh to predict its
+corresponding metric tensor.
+To ensure the network fθ generalizes well, we train it on two sets of query vectors: (1) a subset Sreal
+randomly sampled from the actual query vectors that appear during training, and (2) a set Sgen of
+randomly generated vectors designed to explore a broader region of the representation space. For
+efficiency, we approximate the target metric tensor Gtrue (computed via Equation (4)) as a diagonal
+matrix. This is a practical trade-off that assumes independence between local feature dimensions to
+ensure computational tractability.
+5
+==================================================
+
+--- Page 6 (Methodology) ---
+Published as a conference paper at ICLR 2026
+0 100 200 300 400
+6
+11
+16
+21
+(a) Original signal XT
+0 100 200 300 400
+6
+11
+16
+21 (b) XT w/ spike noise
+0 100 200 300 400
+6
+11
+16
+21 (c) XT w/ level shift
+0 100 200 300 400
+6
+11
+16
+21 (d) XT w/ combined noise
+Figure 4: Visualization of synthetic corruptions on the ETTm1 dataset. (a) Original time series
+without any corruption. (b) Time series with spike corruptions. (c) Time series with level shift
+corruptions. (d) Time series with a combination of corruptions, demonstrating how our TSRBench
+creates challenging test cases for time series models.
+The networks are then trained to minimize the mean squared error between their prediction and the
+true metric tensor. The total loss is a weighted sum over all layers L and heads H:
+LG = 1
+L · H
+LX
+l=1
+HX
+h=1
+
+ 1
+|S h,l
+real|
+X
+q∈S h,l
+real
+L(Gtrue(q), fθl
+h
+(q)) + 1
+|Sgen|
+X
+q∈Sgen
+L(Gtrue(q), fθl
+h
+(q))
+
+ (7)
+This pre-learning strategy decouples the expensive geometry estimation from training and inference
+of the model. Consequently, the local geometric structure can be rapidly approximated, making LGA
+practical for modern deep learning models. The complete algorithm is detailed in Appendix B.
+4 C ORRUPTED TIME SERIES BENCHMARK : TSRB ENCH
+To address the gap in standardized robustness evaluation for time series, we introduceTSRBench,
+a new benchmark designed to assess model performance against realistic, statistically-grounded
+corruptions. Unlike adversarial attacks, TSRBench focuses on corruptions reflecting naturally
+occurring data degradation, such as sensor limitations or external shocks (Si et al., 2024; Schmidl
+et al., 2022).
+While evaluation on real-world datasets with genuine anomalies is ideal, it presents challenges for the
+specific task of forecasting robustness. A fair evaluation requires the ground truth of the test set to be
+clean, which necessitates precise, time-aligned anomaly labels to exclude corrupted periods from
+the loss calculation. However, most real-world forecasting benchmarks lack such labels, making it
+impossible to reliably isolate the effects of input corruptions on future predictions. Our TSRBench
+addresses this critical gap by providing a controlled environment where corruptions are systematically
+injected into the input, while the ground truth for the forecasting horizon remains clean. This enables
+a principled and reproducible assessment of model robustness that is difficult to achieve otherwise.
+Our benchmark introduces two canonical corruption types: spikes and level shifts (Wang et al., 2021;
+Lavin & Ahmad, 2015), which model phenomena like transient bursts and sustained deviations.
+This provides a more realistic test than common augmentation like jittering (Iglesias et al., 2023).
+To support a systematic evaluation, we adopt statistically grounded noise injection methods with
+controllable severity levels (Siffer et al., 2017; Wunderlich & Sklar, 2023).
+Local Corruption Functions. Given an original time series X ∈ RT , we generate two types of
+corruptions: spikes, εspike, and level shifts, εshift. The timing of these corruption events is governed
+by a Poisson process with rate λ, reflecting the random arrival of discrete perturbations.
+Each corruption type is defined by an amplitude parameter h and duration parameters ( d1, d2, or
+d). For a corruption event starting at time τ, the spike function εspike
+τ (s) simulates an asymmetric
+exponential spike, while the level shift function εshift
+τ (s) models a flat shift. These are defined as
+follows:
+6
+==================================================
+
+--- Page 7 (Methodology) ---
+Published as a conference paper at ICLR 2026
+εspike
+τ (s) =
+
+
+
+hspike
+τ · exp
+
+− ln(β)
+d1
+(s − τ − d1)
+
+if τ ≤ s < τ+ d1
+hspike
+τ · exp
+
+ln(β)
+d2
+(s − τ − d1)
+
+if τ + d1 ≤ s ≤ τ + d1 + d2
+εshift
+τ (s) = hshift
+τ for τ ≤ s < τ+ d
+(8)
+Here, the duration parameters (d1, d2, d) are sampled from a geometric distribution with parameter p,
+and the sharpness is fixed at β = 10−4. Crucially, the corruption amplitudes ( hspike
+τ , hshift
+τ ) are not
+arbitrary. They are calibrated based on time-varying statistical thresholds determined by a significance
+level q. This process, which uses the DSPOT algorithm (Siffer et al., 2017) to model extreme values,
+ensures that the injected corruptions represent statistically significant but realistic deviations from
+the normal behavior of signal. The complete generation algorithm is detailed in the Appendix F.1
+(Algorithm 2).
+Each final corrupted signal is formed by summing the noise instances from all events:
+εspike(t) =
+X
+τ ∈T
+εspike
+τ (t), and εshift(t) =
+X
+τ ∈T
+εshift
+τ (t) (9)
+where T is the set of starting times for corruption events. Figure 4 visualizes examples of these
+corruptions.
+Table 1: Parameter settings defining the five corruption severity levels. From level 1 to 5, the
+expected corruption frequency (λ) and duration (p) increase, while the amplitude significance level
+(q) decreases. They collectively intensifying the corruption.
+Params. Description 1 2 3 4 5
+λ Expected frequency of corruptions 0.002 0.004 0.004 0.008 0.008
+p Expected duration of each corruption 6 9 12 12 15
+q Significance level of amplitude 0.0016 0.0016 0.0004 0.0004 0.0001
+Corruption Severity Levels. To comprehensively evaluate model robustness, we designed five
+severity levels that represent gradually increasing data degradation. The corrupted time series is
+generated by adding the synthesized corruptions to the original signal as described.
+We control the severity of corruptions at each level using a parameter triplet ( λ, p, q), which re-
+spectively regulate the frequency, expected duration, and amplitude significance of the anomalies.
+The specific values for each level, summarized in Table 1, were established through extensive ex-
+perimentation to create a progressive scale of difficulty, from Level 1 (mild) to Level 5 (frequent,
+prolonged, and high-magnitude corruption). We conducted extensive experiments with various
+parameter configurations to determine these settings, which are presented in Appendix F.2.
+5 E XPERIMENTS
+We empirically evaluate the robustness of LGA using our proposed TSRBench on six standard
+forecasting datasets: Weather1, Electricity2, and ETT (Zhou et al., 2021) (ETTh1, ETTh2, ETTm1,
+ETTm2). We integrate LGA into the PatchTST architecture (Nie et al., 2023), referred to as PatchLGA,
+by replacing its standard Scaled-Dot Product (SDP) attention. We compare PatchLGA against the
+original PatchTST and other strong baselines, including TimeMixer (Wang et al., 2024), CATS (Kim
+et al., 2024), and iTransformer (Liu et al., 2024), to assess its effectiveness across various model
+types.
+5.1 L ONG -TERM TIME SERIES FORECASTING RESULTS UNDER REALISTIC CORRUPTIONS
+We evaluate forecasting models on TSRBench across six corruption levels (0-5) with an input length
+of 512. Table 10 summarizes the results for combined spike and level shift corruptions, averaged
+1https://www.bgc-jena.mpg.de/wetter/
+2https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014
+7
+==================================================
+
+--- Page 8 (Methodology) ---
+Published as a conference paper at ICLR 2026
+Table 2: Performance comparison of PatchLGA, PatchTST, and TimeMixer across different datasets
+under combined corruptions. Results show average performance across forecasting horizons {96,
+192, 336, 720}. We report MSE and MAE at varying severity levels 0-5 (0 = original data). Lower
+values are better, with the best results highlighted in bold.
+Dataset ETTm1 ETTm2 Weather
+Model PatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixer
+MetricMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAE
+Severity
+0 0.351 0.3790.352 0.3820.360 0.3900.2570.3160.2560.3170.259 0.3220.227 0.2650.225 0.2640.227 0.266
+1 0.359 0.3850.3590.3890.366 0.3960.264 0.3260.2640.3280.265 0.3300.238 0.2840.2390.2840.242 0.288
+2 0.372 0.3970.375 0.4020.385 0.4090.276 0.3350.277 0.3380.279 0.3410.264 0.3130.266 0.3140.275 0.320
+3 0.519 0.4680.614 0.5070.594 0.4990.304 0.3550.308 0.3600.310 0.3640.301 0.3380.306 0.3390.326 0.350
+4 0.617 0.5260.695 0.5580.716 0.5600.356 0.3950.361 0.4000.373 0.4090.361 0.3890.369 0.3840.441 0.421
+5 0.734 0.5770.839 0.6130.837 0.6130.421 0.4280.431 0.4340.459 0.4500.454 0.4230.4910.4230.576 0.464
+Dataset ETTh1 ETTh2 Electricity
+Model PatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixerPatchLGAPatchTSTTimeMixer
+MetricMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAEMSEMAE
+Severity
+0 0.415 0.4280.4150.4290.436 0.4450.337 0.3850.343 0.3870.351 0.3930.161 0.2550.160 0.2540.165 0.259
+1 0.416 0.4300.416 0.4300.437 0.4470.338 0.3870.343 0.3890.352 0.3940.168 0.2640.169 0.2650.172 0.268
+2 0.420 0.4350.421 0.4360.441 0.4510.345 0.3970.3490.3970.363 0.4060.179 0.2760.184 0.2790.184 0.280
+3 0.471 0.4650.474 0.4680.498 0.4830.358 0.4070.3620.4070.384 0.4200.193 0.2880.201 0.2930.201 0.293
+4 0.547 0.5100.550 0.5130.572 0.5260.382 0.4250.391 0.4270.416 0.4430.226 0.3170.232 0.3210.237 0.323
+5 0.712 0.5800.724 0.5880.733 0.5960.404 0.4360.427 0.4450.459 0.4650.284 0.3520.290 0.3580.312 0.361
+over four forecasting horizons. First, the results at Severity 0 serve as a crucial baseline to ensure
+that our proposed robust attention mechanism does not degrade performance on the original, clean
+data. This confirms that integrating LGA does not compromise the inherent forecasting capability of
+model on clean data. As corruption severity increases, PatchLGA consistently shows the most robust
+performance. Its advantage becomes more pronounced at higher severity levels; for example, at level
+5, PatchLGA achieves a 12.3% MSE reduction on ETTm1 and is 21.2% lower than TimeMixer on
+the large Weather dataset. These results confirm the effectiveness of modeling local geometry for
+enhancing robustness, especially when data quality cannot be guaranteed.
+5.2 C OMPARISON WITH ALTERNATIVE ROBUST ATTENTION METHODS
+We evaluated robust attention mechanisms on time series forecasting with corruptions. Our proposed
+LGA consistently outperforms both standard attention and other robust attention variants including
+MoM (Han et al., 2023) and Elliptical attention (Nielsen et al., 2024).
+Table 3: Averaged MSE comparison on
+ETTm1 for LGA, SDP, MoM, and Ellip-
+tical attention. Lower values indicate bet-
+ter performance, with the best result for
+each severity level highlighted in bold.
+Model PatchTST
+Severity SDP MoM Ellip. LGA
+1 0.359 0.375 0.360 0.359
+2 0.375 0.397 0.374 0.372
+3 0.614 0.670 0.722 0.519
+4 0.695 0.871 0.755 0.617
+5 0.839 1.016 0.880 0.734
+/uni000003ec/uni00000358/uni000003ee/uni000003ec/uni00000358/uni000003f0/uni000003ec/uni00000358/uni000003f2/uni000003ec/uni00000358/uni000003f4
+/uni0000005e/uni00000189/uni0000011e/uni0000011e/uni0000011a/uni00000003/uni0000037e/uni00000190/uni0000036c/uni0000015d/uni0000019a/uni0000011e/uni0000018c/uni0000037f
+/uni000003ec/uni00000358/uni000003f1/uni000003ec
+/uni000003ec/uni00000358/uni000003f1/uni000003f1
+/uni000003ec/uni00000358/uni000003f2/uni000003ec
+/uni000003ec/uni00000358/uni000003f2/uni000003f1
+/uni000003ec/uni00000358/uni000003f3/uni000003ec
+/uni00000044/uni0000005e/uni0000001c
+/uni00000044/uni0000004b/uni00000044
+/uni000003ed/uni000003f2/uni00000358/uni000003ec/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000001c/uni0000016f/uni0000016f/uni0000015d/uni00000189/uni0000019a/uni0000015d/uni00000110/uni00000102/uni0000016f
+/uni000003ef/uni00000358/uni000003ed/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000003e/uni00000027/uni00000004/uni00000003/uni0000037e/uni0000017d/uni000001b5/uni0000018c/uni00000190/uni0000037f
+/uni000003f0/uni00000358/uni000003f2/uni00000003/uni00000027/uni0000015d/uni00000011
+/uni0000005e/uni00000018/uni00000057
+/uni000003ef/uni00000358/uni000003ec/uni00000003/uni00000027/uni0000015d/uni00000011
+Figure 5: Comparison of MSE, training
+speed, and memory usage. Attention closer
+to the lower-left corner achieves better trade-
+offs between accuracy and efficiency.
+As shown in Table 3, while robust attention mechanisms successful in vision and language tasks
+underperform compared to standard attention when applied to corrupted time series data, our LGA
+specifically designed for temporal structure exhibits the smallest performance degradation under
+corruption. Unlike Elliptical attention, which trades speed for memory efficiency without robustness
+gains (Fig. 5), LGA effectively leverages local geometry in time series while seeing a moderate
+increase in memory usage, yet maintaining a training speed comparable to standard attention.
+8
+==================================================
