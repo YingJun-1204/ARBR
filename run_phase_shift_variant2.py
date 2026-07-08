@@ -213,7 +213,19 @@ def main():
         raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
     
     print(f"Loading checkpoint from: {checkpoint_path}")
-    exp.model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    state_dict = torch.load(checkpoint_path, map_location=device)
+    
+    # Adapt old keys to GMLP naming schema if needed
+    adapted_state_dict = {}
+    for k, v in state_dict.items():
+        if "patch_residual.projection.weight" in k:
+            adapted_key = k.replace("patch_residual.projection.weight", "patch_residual.base_projection.weight")
+            adapted_state_dict[adapted_key] = v
+        else:
+            adapted_state_dict[k] = v
+            
+    # Load state dict with strict=False to allow default initialization of GMLP specific parameters
+    exp.model.load_state_dict(adapted_state_dict, strict=False)
     exp.model.to(device)
     
     # Load test dataset

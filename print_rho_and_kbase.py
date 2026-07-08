@@ -22,7 +22,7 @@ class MockArgs:
         self.augmentation_ratio = 0
         self.num_workers = 0
 
-def calculate_rho_and_kbase(dataset_class, args, patch_len=24):
+def calculate_rho_and_kbase(dataset_class, args, patch_len=24, num_gaussians=8, stride=12):
     # Instantiate dataset for training
     dataset = dataset_class(
         args=args,
@@ -76,8 +76,9 @@ def calculate_rho_and_kbase(dataset_class, args, patch_len=24):
         total_samples += (B * C)
         
     rho_mean = rho_sum / total_samples
-    k_val = int(round(rho_mean * 5.0))
-    k_base = max(1, min(5, k_val))
+    k_val = int(round(rho_mean * num_gaussians * (stride / patch_len)))
+    max_k = max(1, int(round(num_gaussians * (stride / patch_len))))
+    k_base = max(1, min(max_k, k_val))
     
     return rho_mean, k_base
 

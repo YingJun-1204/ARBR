@@ -164,12 +164,14 @@ class SplattingResidualEncoder(nn.Module):
             self.last_active_count = self.last_gate_hard.sum(dim=-1).mean()
             self.last_sigma = sigma
 
-        # Forward Residual
+        # Forward Residual (Two-Pass Strategy)
         if self.use_residual and self.gs_residual_weight != 0.0:
-            res_proj = self.patch_residual(x_seq, batch_channel)
+            # Pass 1: 获取未对齐的基准投影，用来为路由器提供状态估计
+            res_proj_base = self.patch_residual.get_base_projection(x_seq, batch_channel)
             
+            # Pass 2: 计算路由状态与自适应方向（传入 res_proj_base 代替 res_proj）
             gate_scale, gate_direction, gate_strength, gate_route_probs = self.residual_router(
-                weights, rendered_event, res_proj, batch_channel, patch_num, x_seq.device
+                weights, rendered_event, res_proj_base, batch_channel, patch_num, x_seq.device
             )
             
             self.last_gate_direction = gate_direction
@@ -187,6 +189,9 @@ class SplattingResidualEncoder(nn.Module):
                 self.last_gate_scale = scale.unsqueeze(1).expand(-1, patch_num, 1)
             else:
                 self.last_gate_scale = gate_scale
+            
+            # Pass 3: 传入自适应路由方向，获取最终精确对齐并经高斯掩码调制后的残差特征
+            res_proj = self.patch_residual(x_seq, batch_channel, gate_direction=gate_direction)
             
             rendered_event = rendered_event + self.gs_residual_weight * self.last_gate_scale * res_proj
         else:

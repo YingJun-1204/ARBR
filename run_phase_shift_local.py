@@ -10,18 +10,18 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 from utils.variant_configs import apply_variant_configs
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Phase Shift Equivariance & Accuracy Evaluation (Variant 2) for Weather")
+    parser = argparse.ArgumentParser(description="Local Phase Shift Evaluation (Cyclic Roll Shift)")
 
     # basic config
     parser.add_argument("--task_name", type=str, default="long_term_forecast")
     parser.add_argument("--is_training", type=int, default=0)
-    parser.add_argument("--model_id", type=str, default="weather_router_96")
+    parser.add_argument("--model_id", type=str, default="etth1_router_96")
     parser.add_argument("--model", type=str, default="SplatTS")
 
     # data loader
-    parser.add_argument("--data", type=str, default="custom")
+    parser.add_argument("--data", type=str, default="ETTh1")
     parser.add_argument("--root_path", type=str, default="./data/")
-    parser.add_argument("--data_path", type=str, default="weather.csv")
+    parser.add_argument("--data_path", type=str, default="ETTh1.csv")
     parser.add_argument("--features", type=str, default="M")
     parser.add_argument("--target", type=str, default="OT")
     parser.add_argument("--freq", type=str, default="h")
@@ -33,12 +33,12 @@ def get_parser():
     parser.add_argument("--inverse", action="store_true", default=False)
     
     # model define
-    parser.add_argument("--enc_in", type=int, default=21)
-    parser.add_argument("--dec_in", type=int, default=21)
-    parser.add_argument("--c_out", type=int, default=21)
+    parser.add_argument("--enc_in", type=int, default=7)
+    parser.add_argument("--dec_in", type=int, default=7)
+    parser.add_argument("--c_out", type=int, default=7)
     parser.add_argument("--d_model", type=int, default=128)
     parser.add_argument("--d_ff", type=int, default=256)
-    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--dropout", type=float, default=0.85)
     parser.add_argument("--activation", type=str, default="gelu")
     parser.add_argument("--output_attention", action="store_true")
 
@@ -46,33 +46,33 @@ def get_parser():
     parser.add_argument("--representation", type=str, default="gs", choices=["gs", "patch_linear"])
     parser.add_argument("--patch_len", type=int, default=24)
     parser.add_argument("--stride", type=int, default=12)
-    parser.add_argument("--head_dropout", type=float, default=0.7)
-    parser.add_argument("--head_dropout_position", type=str, default="pre", choices=["none", "pre", "post"])
+    parser.add_argument("--head_dropout", type=float, default=0.1)
+    parser.add_argument("--head_dropout_position", type=str, default="post", choices=["none", "pre", "post"])
     parser.add_argument("--head_mode", type=str, default="linear")
     parser.add_argument("--debug_mode", action="store_true")
-    parser.add_argument("--gs_dropout", type=float, default=0.7)
-    parser.add_argument("--gs_weight_decay", type=float, default=1e-4)
+    parser.add_argument("--gs_dropout", type=float, default=0.3)
+    parser.add_argument("--gs_weight_decay", type=float, default=0.0001)
 
     parser.add_argument("--num_gaussians", type=int, default=10)
     parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "soft", "sparse", "cas"])
-    parser.add_argument("--gs_lambda", type=float, default=0.0)
-    parser.add_argument("--gate_lambda", type=float, default=0.02)
+    parser.add_argument("--gs_lambda", type=float, default=0.1)
+    parser.add_argument("--gate_lambda", type=float, default=0.1)
     parser.add_argument("--use_occlusion", action="store_true", default=False)
     parser.add_argument("--use_residual", action="store_true", default=True)
-    parser.add_argument("--gs_residual_weight", type=float, default=0.3)
+    parser.add_argument("--gs_residual_weight", type=float, default=0.4)
     parser.add_argument("--gate_type", type=str, default="adaptive_direction")
-    parser.add_argument("--gate_beta", type=float, default=0.15)
+    parser.add_argument("--gate_beta", type=float, default=0.5)
     parser.add_argument("--gate_window_half", type=int, default=2)
     parser.add_argument("--k_base", type=int, default=-1)
-    parser.add_argument("--output_dir", type=str, default="loss_mdagV10")
+    parser.add_argument("--output_dir", type=str, default="loss_cas_simplify")
 
     # optimization / execution
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--itr", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--patience", type=int, default=6)
-    parser.add_argument("--learning_rate", type=float, default=0.0015)
-    parser.add_argument("--des", type=str, default="Ablation_weather_router")
+    parser.add_argument("--learning_rate", type=float, default=0.0008)
+    parser.add_argument("--des", type=str, default="Ablation_ETTh1_router")
     parser.add_argument("--loss", type=str, default="MSE")
     parser.add_argument("--lradj", type=str, default="cosine")
 
@@ -107,62 +107,54 @@ def get_parser():
     parser.add_argument("--extra_tag", type=str, default="")
 
     # evaluation specific
-    parser.add_argument("--shifts", type=str, default="1,2,3,4,5,6,8,10,12", help="Comma-separated shift steps to test")
+    parser.add_argument("--shifts", type=str, default="1,2,3,4,5,6,8,10,12", help="Comma-separated local roll shift steps to test")
     
     return parser
 
-def evaluate_shift_metrics(model, test_data, seq_len, pred_len, delta_t, batch_size, device, features):
+def evaluate_local_shift_metrics(model, test_data, seq_len, pred_len, delta_t, batch_size, device, features):
     model.eval()
     
     total_len = len(test_data)
-    max_index = total_len - delta_t
-    
     equiv_errors = []
     forecast_mses = []
     forecast_maes = []
     f_dim = -1 if features == "MS" else 0
     
     with torch.no_grad():
-        for i in range(0, max_index, batch_size):
+        for i in range(0, total_len, batch_size):
             batch_x_0_list = []
             batch_x_dt_list = []
-            batch_y_dt_list = []
+            batch_y_0_list = []
             
-            for j in range(i, min(i + batch_size, max_index)):
-                # Get unshifted input
-                seq_x_0, _, _, _ = test_data[j]
-                # Get shifted input & target
-                seq_x_dt, seq_y_dt, _, _ = test_data[j + delta_t]
+            for j in range(i, min(i + batch_size, total_len)):
+                seq_x_0, seq_y_0, _, _ = test_data[j]
+                
+                # Cyclic roll the input sequence locally
+                seq_x_dt = np.roll(seq_x_0, shift=delta_t, axis=0)
                 
                 batch_x_0_list.append(seq_x_0)
                 batch_x_dt_list.append(seq_x_dt)
-                batch_y_dt_list.append(seq_y_dt)
+                batch_y_0_list.append(seq_y_0)
             
             if not batch_x_0_list:
                 break
                 
             batch_x_0 = torch.tensor(np.array(batch_x_0_list), dtype=torch.float32).to(device)
             batch_x_dt = torch.tensor(np.array(batch_x_dt_list), dtype=torch.float32).to(device)
-            batch_y_dt = torch.tensor(np.array(batch_y_dt_list), dtype=torch.float32).to(device)
+            batch_y_0 = torch.tensor(np.array(batch_y_0_list), dtype=torch.float32).to(device)
             
-            # Predict original (0) and shifted (delta_t)
+            # Predict original input and locally shifted (rolled) input
             outputs_0 = model(batch_x_0, is_training=False)[:, -pred_len:, f_dim:]
             outputs_dt = model(batch_x_dt, is_training=False)[:, -pred_len:, f_dim:]
-            batch_y_dt = batch_y_dt[:, -pred_len:, f_dim:]
+            batch_y_0 = batch_y_0[:, -pred_len:, f_dim:]
             
-            overlap_len = pred_len - delta_t
-            if overlap_len > 0:
-                # Align overlap slices in physical time
-                slice_0 = outputs_0[:, delta_t :, :]
-                slice_dt = outputs_dt[:, :overlap_len, :]
+            # stability error: MSE between the forecast of original and shifted inputs
+            batch_equiv = torch.mean((outputs_0 - outputs_dt) ** 2, dim=[1, 2])
+            equiv_errors.extend(batch_equiv.cpu().numpy())
                 
-                # Calculate MSE of predictions over the overlap region
-                batch_equiv = torch.mean((slice_0 - slice_dt) ** 2, dim=[1, 2])
-                equiv_errors.extend(batch_equiv.cpu().numpy())
-                
-            # Calculate forecasting MSE and MAE on the shifted window
-            batch_forecast_mse = torch.mean((outputs_dt - batch_y_dt) ** 2, dim=[1, 2])
-            batch_forecast_mae = torch.mean(torch.abs(outputs_dt - batch_y_dt), dim=[1, 2])
+            # forecasting MSE and MAE on the locally rolled input compared to true target
+            batch_forecast_mse = torch.mean((outputs_dt - batch_y_0) ** 2, dim=[1, 2])
+            batch_forecast_mae = torch.mean(torch.abs(outputs_dt - batch_y_0), dim=[1, 2])
             forecast_mses.extend(batch_forecast_mse.cpu().numpy())
             forecast_maes.extend(batch_forecast_mae.cpu().numpy())
                
@@ -236,7 +228,7 @@ def main():
     shift_steps = [int(x.strip()) for x in args.shifts.split(",")]
     
     print("\n" + "=" * 60)
-    print(f" Evaluating Shift Equivariance & Accuracy for {args.model} (Weather) ")
+    print(f" Evaluating Local Cyclic Roll Robustness for {args.model} ")
     print("=" * 60)
     
     # Check if the representation has the required modules for monkeypatching
@@ -260,20 +252,21 @@ def main():
         return out
         
     def forward_residual_only(self, x_seq, patch_num, is_flat=False):
-        # Run original forward to populate variables (like self.last_gate_scale)
+        # Run original forward to populate variables (like self.last_gate_scale, self.last_gate_direction)
         _ = original_forward(x_seq, patch_num, is_flat)
         if not is_flat:
             B, C, L = x_seq.shape
             batch_channel = B * C
         else:
             batch_channel = x_seq.shape[0]
-        res_proj = self.patch_residual(x_seq, batch_channel)
+        # Calculate shifted projection using the populated gate_direction
+        res_proj = self.patch_residual(x_seq, batch_channel, gate_direction=self.last_gate_direction)
         return self.gs_residual_weight * self.last_gate_scale * res_proj
 
     # 1. Evaluate Full Model
     print("Evaluating Mode: Full Model...")
     for delta_t in shift_steps:
-        equiv, mse, mae = evaluate_shift_metrics(
+        equiv, mse, mae = evaluate_local_shift_metrics(
             exp.model, test_data, args.seq_len, args.pred_len,
             delta_t, args.batch_size, device, args.features
         )
@@ -286,7 +279,7 @@ def main():
         print("Evaluating Mode: Gaussian Only...")
         rep.forward = types.MethodType(forward_gaussian_only, rep)
         for delta_t in shift_steps:
-            equiv, mse, mae = evaluate_shift_metrics(
+            equiv, mse, mae = evaluate_local_shift_metrics(
                 exp.model, test_data, args.seq_len, args.pred_len,
                 delta_t, args.batch_size, device, args.features
             )
@@ -305,7 +298,7 @@ def main():
         print("Evaluating Mode: Residual Only...")
         rep.forward = types.MethodType(forward_residual_only, rep)
         for delta_t in shift_steps:
-            equiv, mse, mae = evaluate_shift_metrics(
+            equiv, mse, mae = evaluate_local_shift_metrics(
                 exp.model, test_data, args.seq_len, args.pred_len,
                 delta_t, args.batch_size, device, args.features
             )
@@ -319,9 +312,9 @@ def main():
         for k in ["equiv", "mse", "mae"]:
             results["Residual Only"][k] = [float('nan')] * len(shift_steps)
 
-    # Print markdown table 1: Equivariance Error
-    print("\n### 1. Shift Equivariance Error (Variant 2) Results (Weather)\n")
-    print("| Shift Step ($\\Delta t$) | Full Model Equiv Error | Gaussian-Only Equiv Error | Residual-Only Equiv Error |")
+    # Print markdown table 1: Stability Error
+    print("\n### 1. Local Shift Stability Error (MSE between original & shifted predictions)\n")
+    print("| Shift Step ($\\Delta t$) | Full Model Stability Error | Gaussian-Only Stability Error | Residual-Only Stability Error |")
     print("|---|---|---|---|")
     for idx, delta_t in enumerate(shift_steps):
         f_err = results["Full Model"]["equiv"][idx]
@@ -335,8 +328,8 @@ def main():
         print(f"| {delta_t} | {f_str} | {g_str} | {r_str} |")
     print()
 
-    # Print markdown table 2: Forecasting MSE/MAE
-    print("\n### 2. Forecasting Accuracy (MSE / MAE) under Shift (Weather)\n")
+    # Print markdown table 2: Forecasting MSE/MAE under local shift
+    print("\n### 2. Forecasting Accuracy (MSE / MAE) under Local Shift\n")
     print("| Shift Step ($\\Delta t$) | Full Model MSE/MAE | Gaussian-Only MSE/MAE | Residual-Only MSE/MAE |")
     print("|---|---|---|---|")
     for idx, delta_t in enumerate(shift_steps):

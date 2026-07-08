@@ -1,0 +1,51 @@
+
+==================================================
+      [Mechanistic Metric (Gaussian Density)]      
+--------------------------------------------------
+Average EGC: 0.5843 / 8
+EGC Ratio: 0.0730
+Density Sigmoid Mean: 0.4229
+Density Sigmoid P50: 0.4273
+Density Sigmoid P95: 0.5089
+Density Active Ratio (>0.5): 0.0726
+==================================================
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: -0.0103 | std: 0.0212 | abs_mean: 0.0205
+Direction -> min/max: -0.0513 / 0.0570
+Route Probabilities:
+  Neutral -> mean: 0.3277 | std: 0.0915
+  Forward -> mean: 0.3310 | std: 0.0472
+  Reverse -> mean: 0.3413 | std: 0.0468
+Route Confidence -> max_prob mean: 0.3947 | std: 0.0503
+Uncertain ratio  -> max_prob < 0.45: 88.64%
+Route Argmax Ratios:
+  Neutral: 37.73% | Forward: 20.41% | Reverse: 41.86%
+--------------------------------------------------
+Strength  -> mean: 0.6723 | std: 0.0915 | min/max: 0.2198 / 0.9230
+Strength ratios -> Active(>0.5): 94.61% | Weak(<0.1): 0.00% | Mid: 5.39%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: -0.0069 | std: 0.0150 | abs_mean: 0.0141
+Eff_Dir   -> min/max: -0.0450 / 0.0513
+Eff_Dir ratios -> Positive(>0.05): 0.00%
+                  Negative(<-0.05): 0.00%
+                  Near Zero(<=0.05): 100.00%
+Scale     -> mean: 0.9974 | std: 0.0053
+Decision  -> Current Strategy: Uncertain / Neutral Gating Strategy (High uncertainty across patches)
+==================================================
+
+
+==================================================
+      [Local Geometry Attention (LGA) Diagnostics]      
+--------------------------------------------------
+Raw LGA Distance -> mean: 4.211856 | std: 6.896097
+Raw LGA Distance -> min: 0.000000 | max: 186.465118
+LGA Mean (Routed to Neutral): 0.8887
+LGA Mean (Routed to Forward): -0.5722
+LGA Mean (Routed to Reverse): -0.5222
+Correlation(LGA, Energy) -> mean: 0.2247
+==================================================

@@ -119,7 +119,7 @@ def sample_params(trial, bounds, position, gate_type=None, batch_size=512):
     params = {
         "patch_len": 24,
         "stride": 12,
-        "num_gaussians": 10,
+        "num_gaussians": bounds.get("num_gaussians_lower", 8),
         "d_model": 128,
         "d_ff": 256,
         "model_scale": "128-256",
@@ -155,7 +155,7 @@ def build_command(position, params, trial_number, density_mode="sparse", pred_le
     batch_size = params["batch_size"]
 
     cmd = [
-        "python",
+        sys.executable,
         "-u",
         "run.py",
         "--task_name",
