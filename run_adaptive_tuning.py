@@ -48,7 +48,7 @@ def main():
     )
     parser.add_argument("--use_seed", action="store_true", help="Use previous best parameters as HPO seeds")
     parser.add_argument("--gate_type", type=str, default="adaptive_direction", choices=["none", "forward", "reverse", "adaptive_direction"], help="Gating type selection (default: adaptive_direction)")
-    parser.add_argument("--batch_size", type=int, default=512, choices=[16, 256, 512, 1024], help="Fixed batch size for HPO (default: 512)")
+    parser.add_argument("--batch_size", type=int, default=256, choices=[16, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     

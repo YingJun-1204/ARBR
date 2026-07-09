@@ -2,28 +2,28 @@
 ==================================================
       [Adaptive Gating Direction Diagnostics]      
 --------------------------------------------------
-Direction -> mean: 0.0777 | std: 0.2608 | abs_mean: 0.2217
-Direction -> min/max: -0.9229 / 0.8255
+Direction -> mean: 0.1037 | std: 0.2781 | abs_mean: 0.2403
+Direction -> min/max: -0.9348 / 0.8568
 Route Probabilities:
-  Neutral -> mean: 0.2480 | std: 0.1897
-  Forward -> mean: 0.4149 | std: 0.1686
-  Reverse -> mean: 0.3372 | std: 0.1535
-Route Confidence -> max_prob mean: 0.5464 | std: 0.1117
-Uncertain ratio  -> max_prob < 0.45: 19.37%
+  Neutral -> mean: 0.2378 | std: 0.2051
+  Forward -> mean: 0.4329 | std: 0.1823
+  Reverse -> mean: 0.3292 | std: 0.1627
+Route Confidence -> max_prob mean: 0.5667 | std: 0.1202
+Uncertain ratio  -> max_prob < 0.45: 15.42%
 Route Argmax Ratios:
-  Neutral: 17.72% | Forward: 47.32% | Reverse: 34.96%
+  Neutral: 17.44% | Forward: 50.09% | Reverse: 32.47%
 --------------------------------------------------
-Strength  -> mean: 0.7520 | std: 0.1897 | min/max: 0.0056 / 0.9873
-Strength ratios -> Active(>0.5): 88.71% | Weak(<0.1): 0.65% | Mid: 10.64%
+Strength  -> mean: 0.7622 | std: 0.2051 | min/max: 0.0019 / 0.9921
+Strength ratios -> Active(>0.5): 88.06% | Weak(<0.1): 1.23% | Mid: 10.71%
 --------------------------------------------------
       [Effective Gating (Strength * Direction)]      
 --------------------------------------------------
-Eff_Dir   -> mean: 0.0633 | std: 0.2190 | abs_mean: 0.1781
-Eff_Dir   -> min/max: -0.8706 / 0.8022
-Eff_Dir ratios -> Positive(>0.05): 46.69%
-                  Negative(<-0.05): 32.92%
-                  Near Zero(<=0.05): 20.38%
-Scale     -> mean: 1.0117 | std: 0.0391
+Eff_Dir   -> mean: 0.0858 | std: 0.2388 | abs_mean: 0.1971
+Eff_Dir   -> min/max: -0.8947 / 0.8394
+Eff_Dir ratios -> Positive(>0.05): 49.91%
+                  Negative(<-0.05): 30.38%
+                  Near Zero(<=0.05): 19.71%
+Scale     -> mean: 1.0415 | std: 0.1112
 Decision  -> Current Strategy: Mixed Gating
 ==================================================
 
@@ -31,12 +31,12 @@ Decision  -> Current Strategy: Mixed Gating
 ==================================================
       [Local Geometry Attention (LGA) Diagnostics]      
 --------------------------------------------------
-Raw LGA Distance -> mean: 1.689629 | std: 1.573081
-Raw LGA Distance -> min: 0.000000 | max: 44.512833
-LGA Mean (Routed to Neutral): 1.2583
-LGA Mean (Routed to Forward): -0.2838
-LGA Mean (Routed to Reverse): -0.2536
-Correlation(LGA, Energy) -> mean: 0.4004
+Raw LGA Distance -> mean: 1.730365 | std: 1.660683
+Raw LGA Distance -> min: 0.000000 | max: 55.863392
+LGA Mean (Routed to Neutral): 1.2636
+LGA Mean (Routed to Forward): -0.2766
+LGA Mean (Routed to Reverse): -0.2520
+Correlation(LGA, Energy) -> mean: 0.4156
 ==================================================
 
 
@@ -44,17 +44,17 @@ Correlation(LGA, Energy) -> mean: 0.4004
       [Mechanistic Metric (CAS / Gating Cascade)]      
 --------------------------------------------------
 Independent Prob (p_i):
-  [ 0.3196 | 0.5897 | 0.5796 | 0.3526 | 0.3757 | 0.3380 | 0.3171 | 0.5412 ]
+  [ 0.3041 | 0.5948 | 0.5910 | 0.3324 | 0.3688 | 0.3412 | 0.3221 | 0.5628 ]
 Cascaded Prob (pi_i):
-  [ 1.0000 | 1.0000 | 1.0000 | 0.3526 | 0.0824 | 0.0344 | 0.0124 | 0.0074 ]
+  [ 1.0000 | 1.0000 | 1.0000 | 0.3324 | 0.0648 | 0.0270 | 0.0106 | 0.0064 ]
 --------------------------------------------------
 Effective Gaussian Count (EGC) Summary:
-  Mean EGC : 3.4891
-  Min EGC  : 3.0234
-  Max EGC  : 4.3742
+  Mean EGC : 3.4412
+  Min EGC  : 3.0247
+  Max EGC  : 4.3266
 --------------------------------------------------
 Gaussian Bandwidth (Sigma) Bifurcation:
-  Active Nuclei Sigma (pi_i > 0.5)   : 0.3949
-  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6865
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.3598
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6829
   Bifurcation Status : WEAK / NO BIFURCATION
 ==================================================

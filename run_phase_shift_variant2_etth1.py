@@ -10,7 +10,7 @@ from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
 from utils.variant_configs import apply_variant_configs
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="Phase Shift Equivariance & Accuracy Evaluation (Variant 2)")
+    parser = argparse.ArgumentParser(description="Phase Shift Equivariance & Accuracy Evaluation (Variant 2) for ETTh1")
 
     # basic config
     parser.add_argument("--task_name", type=str, default="long_term_forecast")
@@ -53,6 +53,7 @@ def get_parser():
     parser.add_argument("--gs_dropout", type=float, default=0.3)
     parser.add_argument("--gs_weight_decay", type=float, default=0.0001)
 
+    # model constraints
     parser.add_argument("--num_gaussians", type=int, default=10)
     parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"])
     parser.add_argument("--gs_lambda", type=float, default=0.1)
@@ -107,7 +108,7 @@ def get_parser():
     parser.add_argument("--extra_tag", type=str, default="")
 
     # evaluation specific
-    parser.add_argument("--shifts", type=str, default="1,2,3,4,5,6,8,10,12", help="Comma-separated shift steps to test")
+    parser.add_argument("--shifts", type=str, default="0,1,2,4,8,16", help="Comma-separated shift steps to test")
     
     return parser
 
@@ -171,6 +172,30 @@ def evaluate_shift_metrics(model, test_data, seq_len, pred_len, delta_t, batch_s
         np.mean(forecast_mses) if forecast_mses else 0.0,
         np.mean(forecast_maes) if forecast_maes else 0.0,
     )
+
+def format_accuracy_cell(idx, delta_t, mode, results, baseline_idx):
+    current_mse = results[mode]["mse"][idx]
+    current_mae = results[mode]["mae"][idx]
+    
+    if np.isnan(current_mse) or np.isnan(current_mae):
+        return "N/A"
+        
+    if delta_t == 0 or baseline_idx is None:
+        return f"{current_mse:.6f} / {current_mae:.6f}"
+        
+    baseline_mse = results[mode]["mse"][baseline_idx]
+    baseline_mae = results[mode]["mae"][baseline_idx]
+    
+    diff_mse = current_mse - baseline_mse
+    diff_mae = current_mae - baseline_mae
+    
+    deg_mse_pct = (diff_mse / (baseline_mse + 1e-9)) * 100
+    deg_mae_pct = (diff_mae / (baseline_mae + 1e-9)) * 100
+    
+    sign_mse = "+" if diff_mse >= 0 else ""
+    sign_mae = "+" if diff_mae >= 0 else ""
+    
+    return f"{current_mse:.6f} / {current_mae:.6f} ({sign_mse}{diff_mse:.6f} / {sign_mae}{diff_mae:.6f} | {sign_mse}{deg_mse_pct:.2f}% / {sign_mae}{deg_mae_pct:.2f}%)"
 
 def main():
     parser = get_parser()
@@ -236,7 +261,7 @@ def main():
     shift_steps = [int(x.strip()) for x in args.shifts.split(",")]
     
     print("\n" + "=" * 60)
-    print(f" Evaluating Shift Equivariance & Accuracy for {args.model} ")
+    print(f" Evaluating Shift Equivariance & Accuracy for {args.model} (ETTh1) ")
     print("=" * 60)
     
     # Check if the representation has the required modules for monkeypatching
@@ -319,8 +344,14 @@ def main():
         for k in ["equiv", "mse", "mae"]:
             results["Residual Only"][k] = [float('nan')] * len(shift_steps)
 
+    # Find index of baseline (0)
+    try:
+        baseline_idx = shift_steps.index(0)
+    except ValueError:
+        baseline_idx = None
+
     # Print markdown table 1: Equivariance Error
-    print("\n### 1. Shift Equivariance Error (Variant 2) Results (Markdown Table)\n")
+    print("\n### 1. Shift Equivariance Error (Variant 2) Results (ETTh1)\n")
     print("| Shift Step ($\\Delta t$) | Full Model Equiv Error | Gaussian-Only Equiv Error | Residual-Only Equiv Error |")
     print("|---|---|---|---|")
     for idx, delta_t in enumerate(shift_steps):
@@ -336,20 +367,13 @@ def main():
     print()
 
     # Print markdown table 2: Forecasting MSE/MAE
-    print("\n### 2. Forecasting Accuracy (MSE / MAE) under Shift\n")
+    print("\n### 2. Forecasting Accuracy (MSE / MAE) under Shift (ETTh1)\n")
     print("| Shift Step ($\\Delta t$) | Full Model MSE/MAE | Gaussian-Only MSE/MAE | Residual-Only MSE/MAE |")
     print("|---|---|---|---|")
     for idx, delta_t in enumerate(shift_steps):
-        f_mse = results["Full Model"]["mse"][idx]
-        f_mae = results["Full Model"]["mae"][idx]
-        g_mse = results["Gaussian Only"]["mse"][idx]
-        g_mae = results["Gaussian Only"]["mae"][idx]
-        r_mse = results["Residual Only"]["mse"][idx]
-        r_mae = results["Residual Only"]["mae"][idx]
-        
-        f_str = f"{f_mse:.6f} / {f_mae:.6f}" if not np.isnan(f_mse) else "N/A"
-        g_str = f"{g_mse:.6f} / {g_mae:.6f}" if not np.isnan(g_mse) else "N/A"
-        r_str = f"{r_mse:.6f} / {r_mae:.6f}" if not np.isnan(r_mse) else "N/A"
+        f_str = format_accuracy_cell(idx, delta_t, "Full Model", results, baseline_idx)
+        g_str = format_accuracy_cell(idx, delta_t, "Gaussian Only", results, baseline_idx)
+        r_str = format_accuracy_cell(idx, delta_t, "Residual Only", results, baseline_idx)
         
         print(f"| {delta_t} | {f_str} | {g_str} | {r_str} |")
     print()

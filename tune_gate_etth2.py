@@ -12,7 +12,7 @@ DATASET_CONFIGS = {
     "ETTh2": {
         "data_path": "ETTh2.csv",
         "seq_len": 512,
-        "batch_size": 1024,
+        "batch_size": 256,
         "patience": 6,
         "dropout": 0.5,
         "head_dropout": 0.05,
@@ -473,16 +473,16 @@ def load_seed_params(position, experiment_tag="simplify", pred_len=96, gate_type
         if key in seed:
             seed_trial[key] = seed[key]
 
-    seed_trial["batch_size"] = seed_trial.get("batch_size", 1024)
-    seed_trial["gs_residual_weight"] = seed_trial.get("gs_residual_weight", 0.2066)
-    seed_trial["gate_beta"] = seed_trial.get("gate_beta", 0.25)
+    seed_trial["batch_size"] = seed_trial.get("batch_size", 256)
+    seed_trial["gs_residual_weight"] = seed_trial.get("gs_residual_weight", 0.6)
+    seed_trial["gate_beta"] = seed_trial.get("gate_beta", 0.4)
     
-    dropout_val = seed.get("gs_dropout", seed.get("dropout", 0.65))
+    dropout_val = seed.get("gs_dropout", seed.get("dropout", 0.85))
     seed_trial["gs_dropout"] = float(dropout_val)
     
     if gate_type == "adaptive_direction":
-        seed_trial["gate_lambda"] = seed_trial.get("gate_lambda", seed.get("gate_lambda", 0.01))
-        seed_trial["gate_window_half"] = seed_trial.get("gate_window_half", seed.get("gate_window_half", 2))
+        seed_trial["gate_lambda"] = seed_trial.get("gate_lambda", seed.get("gate_lambda", 0.05))
+        seed_trial["gate_window_half"] = seed_trial.get("gate_window_half", seed.get("gate_window_half", 4))
 
     # Check categorical choices
     categorical_choices = {
@@ -506,7 +506,7 @@ def main():
     parser.add_argument("--gate_type", type=str, required=True, choices=["none", "forward", "reverse", "adaptive_direction"], help="Residual gating direction")
     parser.add_argument("--gate_beta", type=float, default=0.25, help="Scale gate beta bounds")
     parser.add_argument("--pred_len", type=int, nargs="+", default=[96], help="Prediction horizons (default: [96])")
-    parser.add_argument("--batch_size", type=int, default=1024, choices=[256, 512, 1024], help="Fixed batch size for HPO (default: 1024)")
+    parser.add_argument("--batch_size", type=int, default=256, choices=[256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for best json configs")
     parser.add_argument("--position", type=str, default="pre", choices=POSITIONS, help="Head dropout position")
     parser.add_argument("--density_mode", type=str, default="cas", choices=DENSITY_MODES, help="Density mode selection")

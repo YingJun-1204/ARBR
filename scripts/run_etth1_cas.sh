@@ -20,29 +20,29 @@ python -u run.py \
   --d_model 128 \
   --d_ff 256 \
   --itr 1 \
-  --batch_size 1024 \
+  --batch_size 256 \
   --representation gs \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 10 \
-  --gs_dropout 0.85 \
+  --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
   --dropout 0.0 \
-  --head_dropout 0.85 \
+  --head_dropout 0.9 \
   --head_dropout_position pre \
   --density_mode cas \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.4 \
+  --gs_residual_weight 0.55 \
   --gate_type adaptive_direction \
-  --gate_beta 0.5 \
-  --gate_lambda 0.1 \
-  --gate_window_half 2 \
+  --gate_beta 0.2 \
+  --gate_lambda 0.05 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
 
@@ -64,14 +64,14 @@ python -u run.py \
   --d_model 128 \
   --d_ff 256 \
   --itr 1 \
-  --batch_size 1024 \
+  --batch_size 256 \
   --representation gs \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 10 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.002 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -82,10 +82,10 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.6 \
+  --gs_residual_weight 0.55 \
   --gate_type adaptive_direction \
-  --gate_beta 0.3 \
-  --gate_lambda 0.08 \
+  --gate_beta 0.2 \
+  --gate_lambda 0.05 \
   --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
@@ -108,14 +108,14 @@ python -u run.py \
   --d_model 128 \
   --d_ff 256 \
   --itr 1 \
-  --batch_size 1024 \
+  --batch_size 256 \
   --representation gs \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 10 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.002 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -128,8 +128,8 @@ python -u run.py \
   --use_residual \
   --gs_residual_weight 0.55 \
   --gate_type adaptive_direction \
-  --gate_beta 0.4 \
-  --gate_lambda 0.1 \
+  --gate_beta 0.2 \
+  --gate_lambda 0.05 \
   --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
@@ -152,19 +152,19 @@ python -u run.py \
   --d_model 128 \
   --d_ff 256 \
   --itr 1 \
-  --batch_size 1024 \
+  --batch_size 256 \
   --representation gs \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 10 \
-  --gs_dropout 0.75 \
+  --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0015 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
   --dropout 0.0 \
-  --head_dropout 0.75 \
+  --head_dropout 0.9 \
   --head_dropout_position pre \
   --density_mode cas \
   --gs_lambda 0.0 \
@@ -173,7 +173,7 @@ python -u run.py \
   --gs_residual_weight 0.55 \
   --gate_type adaptive_direction \
   --gate_beta 0.2 \
-  --gate_lambda 0.01 \
-  --gate_window_half 2 \
+  --gate_lambda 0.05 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
