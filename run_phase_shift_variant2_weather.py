@@ -284,14 +284,14 @@ def main():
         return out
         
     def forward_residual_only(self, x_seq, patch_num, is_flat=False):
-        # Run original forward to populate variables (like self.last_gate_scale)
+        # Run original forward to populate variables (like self.last_gate_scale, self.last_gate_direction)
         _ = original_forward(x_seq, patch_num, is_flat)
         if not is_flat:
             B, C, L = x_seq.shape
             batch_channel = B * C
         else:
             batch_channel = x_seq.shape[0]
-        res_proj = self.patch_residual(x_seq, batch_channel)
+        res_proj = self.patch_residual(x_seq, batch_channel, gate_direction=self.last_gate_direction)
         return self.gs_residual_weight * self.last_gate_scale * res_proj
 
     # 1. Evaluate Full Model
