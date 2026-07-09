@@ -13,6 +13,8 @@ class CASGating(nn.Module):
         self.d_model = d_model
         init_k = k_base if k_base is not None else -1
         self.register_buffer('k_base', torch.tensor(init_k, dtype=torch.long))
+        if init_k != -1:
+            print(f"[CASGating Init] Pre-resolved k_base locked to: {init_k}")
         self.complexity_router = nn.Sequential(
             nn.Linear(d_model + 1, 32),
             nn.GELU(),

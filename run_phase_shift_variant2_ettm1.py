@@ -54,7 +54,7 @@ def get_parser():
     parser.add_argument("--gs_weight_decay", type=float, default=3.5693506679434546e-05)
 
     parser.add_argument("--num_gaussians", type=int, default=10)
-    parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "soft", "sparse", "cas"])
+    parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"])
     parser.add_argument("--gs_lambda", type=float, default=0.0)
     parser.add_argument("--gate_lambda", type=float, default=0.03704984874738518)
     parser.add_argument("--use_occlusion", action="store_true", default=False)

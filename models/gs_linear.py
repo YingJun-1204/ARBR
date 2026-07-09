@@ -26,6 +26,46 @@ class Model(nn.Module):
         )
 
         in_features = configs.seq_len
+        
+        k_base = getattr(configs, "k_base", -1)
+        if k_base == -1:
+            dataset_name = getattr(configs, "data", "").lower()
+            data_path = getattr(configs, "data_path", "").lower()
+            
+            # Map dataset to its pre-computed rho_mean on the training set
+            rho_map = {
+                "etth1": 0.342331,
+                "etth2": 0.429279,
+                "ettm1": 0.651924,
+                "ettm2": 0.575884,
+                "weather": 0.755071,
+                "electricity": 0.097540
+            }
+            
+            ds_key = None
+            if "etth1" in dataset_name or "etth1" in data_path:
+                ds_key = "etth1"
+            elif "etth2" in dataset_name or "etth2" in data_path:
+                ds_key = "etth2"
+            elif "ettm1" in dataset_name or "ettm1" in data_path:
+                ds_key = "ettm1"
+            elif "ettm2" in dataset_name or "ettm2" in data_path:
+                ds_key = "ettm2"
+            elif "weather" in dataset_name or "weather" in data_path:
+                ds_key = "weather"
+            elif "electricity" in dataset_name or "electricity" in data_path:
+                ds_key = "electricity"
+                
+            if ds_key is not None:
+                rho_mean = rho_map[ds_key]
+                num_gaussians = getattr(configs, "num_gaussians", 8)
+                stride_val = self.stride
+                patch_len = self.patch_len
+                
+                k_val = int(round(rho_mean * num_gaussians * (stride_val / patch_len)))
+                max_k = max(1, int(round(num_gaussians * (stride_val / patch_len))))
+                k_base = max(1, min(max_k, k_val))
+                print(f"[Model Init] Auto-resolved k_base to {k_base} for {ds_key} (full-set rho_mean: {rho_mean:.6f}, num_gaussians: {num_gaussians})")
 
         if self.representation_name == "gs":
             self.splatting_residual = SplattingResidualEncoder(
@@ -44,7 +84,7 @@ class Model(nn.Module):
                 gate_beta=getattr(configs, "gate_beta", 0.25),
                 gate_window_half=getattr(configs, "gate_window_half", 2),
                 gamma_complement=getattr(configs, "gamma_complement", 0.6),
-                k_base=getattr(configs, "k_base", -1),
+                k_base=k_base,
             )
             self.representation = self.splatting_residual
         elif self.representation_name == "patch_linear":

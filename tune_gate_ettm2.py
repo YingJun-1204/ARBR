@@ -23,7 +23,7 @@ DATASET_CONFIGS = {
 }
 
 POSITIONS = ["none", "pre", "post"]
-DENSITY_MODES = ["none", "soft", "sparse", "cas"]
+DENSITY_MODES = ["none", "cas"]
 
 # Initial tuning search bounds for HPO centered around ETTm2 baseline
 DEFAULT_BOUNDS = {
@@ -61,7 +61,7 @@ PARAM_KEYS = {
 
 def get_output_json_path(output_dir, gate_type, pred_len=96, density_mode=None):
     os.makedirs(output_dir, exist_ok=True)
-    suffix = f"_{density_mode}" if density_mode in ["sparse", "cas"] else ""
+    suffix = f"_{density_mode}" if density_mode in ["cas"] else ""
     if gate_type == "adaptive_direction":
         return os.path.join(output_dir, f"best_ettm2_router_{pred_len}{suffix}.json")
     gate_str = gate_type if gate_type is not None else "none"
@@ -147,7 +147,7 @@ def sample_params(trial, bounds, position, gate_type=None, batch_size=512):
     return params
 
 
-def build_command(position, params, trial_number, density_mode="sparse", pred_len=96, gate_type=None, gate_beta=0.25, output_dir="loss_cas_simplify"):
+def build_command(position, params, trial_number, density_mode="cas", pred_len=96, gate_type=None, gate_beta=0.25, output_dir="loss_cas_simplify"):
     cfg = DATASET_CONFIGS["ETTm2"]
     head_dropout = 0.0 if position == "none" else params["head_dropout"]
     gate_str = "router" if gate_type == "adaptive_direction" else (gate_type if gate_type is not None else "none")
@@ -504,7 +504,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=1024, choices=[256, 512, 1024], help="Fixed batch size for HPO (default: 1024)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for best json configs")
     parser.add_argument("--position", type=str, default="pre", choices=POSITIONS, help="Head dropout position")
-    parser.add_argument("--density_mode", type=str, default="sparse", choices=DENSITY_MODES, help="Density mode selection")
+    parser.add_argument("--density_mode", type=str, default="cas", choices=DENSITY_MODES, help="Density mode selection")
     parser.add_argument("--batches", type=int, default=20, help="Number of optuna batches")
     parser.add_argument("--trials_per_batch", type=int, default=15, help="Number of trials per optuna batch")
     parser.add_argument("--use_seed", action="store_true", help="Use previous best parameters as HPO seeds")

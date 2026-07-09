@@ -2,50 +2,50 @@
 ==================================================
       [Mechanistic Metric (Gaussian Density)]      
 --------------------------------------------------
-Average EGC: 0.5843 / 8
-EGC Ratio: 0.0730
-Density Sigmoid Mean: 0.4229
-Density Sigmoid P50: 0.4273
-Density Sigmoid P95: 0.5089
-Density Active Ratio (>0.5): 0.0726
+Average EGC: 0.0009 / 8
+EGC Ratio: 0.0001
+Density Sigmoid Mean: 0.0824
+Density Sigmoid P50: 0.0431
+Density Sigmoid P95: 0.2827
+Density Active Ratio (>0.5): 0.0001
 ==================================================
 
 ==================================================
       [Adaptive Gating Direction Diagnostics]      
 --------------------------------------------------
-Direction -> mean: -0.0103 | std: 0.0212 | abs_mean: 0.0205
-Direction -> min/max: -0.0513 / 0.0570
+Direction -> mean: -0.1289 | std: 0.0330 | abs_mean: 0.1289
+Direction -> min/max: -0.2418 / 0.0122
 Route Probabilities:
-  Neutral -> mean: 0.3277 | std: 0.0915
-  Forward -> mean: 0.3310 | std: 0.0472
-  Reverse -> mean: 0.3413 | std: 0.0468
-Route Confidence -> max_prob mean: 0.3947 | std: 0.0503
-Uncertain ratio  -> max_prob < 0.45: 88.64%
+  Neutral -> mean: 0.2183 | std: 0.1616
+  Forward -> mean: 0.3264 | std: 0.0688
+  Reverse -> mean: 0.4553 | std: 0.0942
+Route Confidence -> max_prob mean: 0.4942 | std: 0.0676
+Uncertain ratio  -> max_prob < 0.45: 24.88%
 Route Argmax Ratios:
-  Neutral: 37.73% | Forward: 20.41% | Reverse: 41.86%
+  Neutral: 16.30% | Forward: 0.00% | Reverse: 83.70%
 --------------------------------------------------
-Strength  -> mean: 0.6723 | std: 0.0915 | min/max: 0.2198 / 0.9230
-Strength ratios -> Active(>0.5): 94.61% | Weak(<0.1): 0.00% | Mid: 5.39%
+Strength  -> mean: 0.7817 | std: 0.1616 | min/max: 0.0332 / 0.9989
+Strength ratios -> Active(>0.5): 92.34% | Weak(<0.1): 0.02% | Mid: 7.64%
 --------------------------------------------------
       [Effective Gating (Strength * Direction)]      
 --------------------------------------------------
-Eff_Dir   -> mean: -0.0069 | std: 0.0150 | abs_mean: 0.0141
-Eff_Dir   -> min/max: -0.0450 / 0.0513
+Eff_Dir   -> mean: -0.1049 | std: 0.0394 | abs_mean: 0.1049
+Eff_Dir   -> min/max: -0.2395 / 0.0118
 Eff_Dir ratios -> Positive(>0.05): 0.00%
-                  Negative(<-0.05): 0.00%
-                  Near Zero(<=0.05): 100.00%
-Scale     -> mean: 0.9974 | std: 0.0053
-Decision  -> Current Strategy: Uncertain / Neutral Gating Strategy (High uncertainty across patches)
+                  Negative(<-0.05): 88.63%
+                  Near Zero(<=0.05): 11.37%
+Scale     -> mean: 0.9807 | std: 0.0049
+Decision  -> Current Strategy: Reverse Dominant
 ==================================================
 
 
 ==================================================
       [Local Geometry Attention (LGA) Diagnostics]      
 --------------------------------------------------
-Raw LGA Distance -> mean: 4.211856 | std: 6.896097
-Raw LGA Distance -> min: 0.000000 | max: 186.465118
-LGA Mean (Routed to Neutral): 0.8887
-LGA Mean (Routed to Forward): -0.5722
-LGA Mean (Routed to Reverse): -0.5222
-Correlation(LGA, Energy) -> mean: 0.2247
+Raw LGA Distance -> mean: 2.862169 | std: 5.021098
+Raw LGA Distance -> min: 0.000000 | max: 132.697296
+LGA Mean (Routed to Neutral): 1.3096
+LGA Mean (Routed to Forward): -0.5542
+LGA Mean (Routed to Reverse): -0.2551
+Correlation(LGA, Energy) -> mean: 0.1851
 ==================================================

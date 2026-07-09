@@ -12,7 +12,7 @@ class TemporalGaussianSplatting(nn.Module):
         self.use_occlusion = use_occlusion
 
         generator_in = in_features if in_features is not None else seq_len
-        num_params_per_gaussian = 3 + self.d_latent if density_mode in ["none", "cas"] else 4 + self.d_latent
+        num_params_per_gaussian = 3 + self.d_latent
 
         self.generator = nn.Sequential(
             nn.Linear(generator_in, 128),
@@ -25,27 +25,17 @@ class TemporalGaussianSplatting(nn.Module):
         batch_channel = x_flat.shape[0]
         raw_params = self.generator(x_flat)
 
-        if self.density_mode in ["none", "cas"]:
-            raw_params = raw_params.view(batch_channel, self.num_gaussians, 3 + self.d_latent)
-            mu = torch.sigmoid(raw_params[:, :, 0])
-            sigma = F.softplus(raw_params[:, :, 1]) + 1e-5
-            alpha = torch.sigmoid(raw_params[:, :, 2])
-            c = raw_params[:, :, 3:]
-            last_density_score = None
-            
-            if self.density_mode == "cas" and gate_effective is not None:
-                alpha_effective = alpha * gate_effective
-            else:
-                alpha_effective = alpha
+        raw_params = raw_params.view(batch_channel, self.num_gaussians, 3 + self.d_latent)
+        mu = torch.sigmoid(raw_params[:, :, 0])
+        sigma = F.softplus(raw_params[:, :, 1]) + 1e-5
+        alpha = torch.sigmoid(raw_params[:, :, 2])
+        c = raw_params[:, :, 3:]
+        last_density_score = None
+        
+        if self.density_mode == "cas" and gate_effective is not None:
+            alpha_effective = alpha * gate_effective
         else:
-            raw_params = raw_params.view(batch_channel, self.num_gaussians, 4 + self.d_latent)
-            mu = torch.sigmoid(raw_params[:, :, 0])
-            sigma = F.softplus(raw_params[:, :, 1]) + 1e-5
-            alpha = torch.sigmoid(raw_params[:, :, 2])
-            density_score = raw_params[:, :, 3]
-            c = raw_params[:, :, 4:]
-            last_density_score = density_score
-            alpha_effective = alpha * torch.sigmoid(density_score)
+            alpha_effective = alpha
 
         t_queries = torch.linspace(0, 1, patch_num, device=x_seq_device)
         t_expanded = t_queries.unsqueeze(0).unsqueeze(2)

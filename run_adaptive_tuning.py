@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--batches", type=int, default=7, help="Number of optuna batches (default: 10)")
     parser.add_argument("--trials_per_batch", type=int, default=30, help="Number of trials per optuna batch (default: 30)")
     parser.add_argument("--position", type=str, default="pre", choices=["none", "pre", "post"], help="Head dropout position")
-    parser.add_argument("--density_mode", type=str, default="sparse", choices=["none", "soft", "sparse", "cas"], help="Density mode selection")
+    parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"], help="Density mode selection")
     parser.add_argument("--num_gaussians", type=int, default=8, help="Fixed number of gaussians (default: 8)")
     parser.add_argument("--output_dir", type=str, default="loss_lga_new", help="Output directory for best json configs")
     parser.add_argument(

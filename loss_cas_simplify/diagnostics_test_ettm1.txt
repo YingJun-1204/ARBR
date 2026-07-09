@@ -1,0 +1,48 @@
+
+==================================================
+      [Adaptive Gating Direction Diagnostics]      
+--------------------------------------------------
+Direction -> mean: 0.0000 | std: 0.0000 | abs_mean: 0.0000
+Direction -> min/max: 0.0000 / 0.0000
+Route Probabilities:
+  Neutral -> mean: 1.0000 | std: 0.0000
+  Forward -> mean: 0.0000 | std: 0.0000
+  Reverse -> mean: 0.0000 | std: 0.0000
+Route Confidence -> max_prob mean: 1.0000 | std: 0.0000
+Uncertain ratio  -> max_prob < 0.45: 0.00%
+Route Argmax Ratios:
+  Neutral: 100.00% | Forward: 0.00% | Reverse: 0.00%
+--------------------------------------------------
+Strength  -> mean: 0.0000 | std: 0.0000 | min/max: 0.0000 / 0.0000
+Strength ratios -> Active(>0.5): 0.00% | Weak(<0.1): 100.00% | Mid: 0.00%
+--------------------------------------------------
+      [Effective Gating (Strength * Direction)]      
+--------------------------------------------------
+Eff_Dir   -> mean: 0.0000 | std: 0.0000 | abs_mean: 0.0000
+Eff_Dir   -> min/max: 0.0000 / 0.0000
+Eff_Dir ratios -> Positive(>0.05): 0.00%
+                  Negative(<-0.05): 0.00%
+                  Near Zero(<=0.05): 100.00%
+Scale     -> mean: 1.2708 | std: 0.0172
+Decision  -> Current Strategy: Mostly Neutral / No Density Gating
+==================================================
+
+
+==================================================
+      [Mechanistic Metric (CAS / Gating Cascade)]      
+--------------------------------------------------
+Independent Prob (p_i):
+  [ 0.4402 | 0.5421 | 0.5003 | 0.4814 | 0.4374 | 0.4804 | 0.4494 | 0.5017 ]
+Cascaded Prob (pi_i):
+  [ 1.0000 | 1.0000 | 1.0000 | 0.4814 | 0.2104 | 0.1011 | 0.0455 | 0.0229 ]
+--------------------------------------------------
+Effective Gaussian Count (EGC) Summary:
+  Mean EGC : 3.8613
+  Min EGC  : 3.7972
+  Max EGC  : 3.9541
+--------------------------------------------------
+Gaussian Bandwidth (Sigma) Bifurcation:
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.5740
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6849
+  Bifurcation Status : WEAK / NO BIFURCATION
+==================================================
