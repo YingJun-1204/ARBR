@@ -10,19 +10,19 @@ from utils.variant_configs import apply_variant_configs
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Localized Phase Shift Robustness Evaluation for Full SplatTS on ETTm1"
+        description="Localized Phase Shift Robustness Evaluation for Full SplatTS on ETTm2"
     )
 
     # basic config
     parser.add_argument("--task_name", type=str, default="long_term_forecast")
     parser.add_argument("--is_training", type=int, default=0)
-    parser.add_argument("--model_id", type=str, default="ettm1_router_96")
+    parser.add_argument("--model_id", type=str, default="ettm2_router_96")
     parser.add_argument("--model", type=str, default="SplatTS")
 
     # data loader
-    parser.add_argument("--data", type=str, default="ETTm1")
+    parser.add_argument("--data", type=str, default="ETTm2")
     parser.add_argument("--root_path", type=str, default="./data/")
-    parser.add_argument("--data_path", type=str, default="ETTm1.csv")
+    parser.add_argument("--data_path", type=str, default="ETTm2.csv")
     parser.add_argument("--features", type=str, default="M")
     parser.add_argument("--target", type=str, default="OT")
     parser.add_argument("--freq", type=str, default="t")
@@ -47,11 +47,11 @@ def get_parser():
     parser.add_argument("--representation", type=str, default="gs", choices=["gs", "patch_linear"])
     parser.add_argument("--patch_len", type=int, default=24)
     parser.add_argument("--stride", type=int, default=12)
-    parser.add_argument("--head_dropout", type=float, default=0.45)
+    parser.add_argument("--head_dropout", type=float, default=0.8)
     parser.add_argument("--head_dropout_position", type=str, default="pre", choices=["none", "pre", "post"])
     parser.add_argument("--head_mode", type=str, default="linear")
     parser.add_argument("--debug_mode", action="store_true")
-    parser.add_argument("--gs_dropout", type=float, default=0.45)
+    parser.add_argument("--gs_dropout", type=float, default=0.8)
     parser.add_argument("--gs_weight_decay", type=float, default=0.0001)
 
     # model constraints
@@ -61,9 +61,9 @@ def get_parser():
     parser.add_argument("--gate_lambda", type=float, default=0.1)
     parser.add_argument("--use_occlusion", action="store_true", default=False)
     parser.add_argument("--use_residual", action="store_true", default=True)
-    parser.add_argument("--gs_residual_weight", type=float, default=0.2)
+    parser.add_argument("--gs_residual_weight", type=float, default=0.55)
     parser.add_argument("--gate_type", type=str, default="adaptive_direction")
-    parser.add_argument("--gate_beta", type=float, default=0.4)
+    parser.add_argument("--gate_beta", type=float, default=0.3)
     parser.add_argument("--gate_window_half", type=int, default=2)
     parser.add_argument("--k_base", type=int, default=-1)
     parser.add_argument("--output_dir", type=str, default="loss_mdagV12")
@@ -73,8 +73,8 @@ def get_parser():
     parser.add_argument("--itr", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--patience", type=int, default=6)
-    parser.add_argument("--learning_rate", type=float, default=0.0003)
-    parser.add_argument("--des", type=str, default="Ablation_ETTm1_router")
+    parser.add_argument("--learning_rate", type=float, default=0.0015)
+    parser.add_argument("--des", type=str, default="Ablation_ETTm2_router")
     parser.add_argument("--loss", type=str, default="MSE")
     parser.add_argument("--lradj", type=str, default="cosine")
 

@@ -85,6 +85,14 @@ class Model(nn.Module):
                 gate_window_half=getattr(configs, "gate_window_half", 2),
                 gamma_complement=getattr(configs, "gamma_complement", 0.6),
                 k_base=k_base,
+                residual_mode=getattr(configs, "residual_mode", "gaussian_jet"),
+                num_implicit_gaussians=getattr(configs, "num_implicit_gaussians", 4),
+                jet_max_shift_samples=getattr(configs, "jet_max_shift_samples", 1.0),
+                jet_score_temperature=getattr(configs, "jet_score_temperature", 1.0),
+                jet_density_tau=getattr(configs, "jet_density_tau", 1.0),
+                jet_detach_geometry=bool(getattr(configs, "jet_detach_geometry", 1)),
+                jet_scale_init=getattr(configs, "jet_scale_init", 0.1),
+                jet_sigma_init=getattr(configs, "jet_sigma_init", 0.2),
             )
             self.representation = self.splatting_residual
         elif self.representation_name == "patch_linear":

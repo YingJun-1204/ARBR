@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 from layers.cas_gating import CASGating
 from layers.gaussian_splatting import TemporalGaussianSplatting
-from layers.patch_residual import PatchResidualProjection
+from layers.patch_residual import PatchResidualProjection, GaussianJetProjection
 from layers.residual_router import AdaptiveResidualRouter
 
 class SplattingResidualEncoder(nn.Module):
@@ -26,6 +26,14 @@ class SplattingResidualEncoder(nn.Module):
         gate_window_half=2,
         gamma_complement=0.6,
         k_base=-1,
+        residual_mode="gaussian_jet",
+        num_implicit_gaussians=4,
+        jet_max_shift_samples=1.0,
+        jet_score_temperature=1.0,
+        jet_density_tau=1.0,
+        jet_detach_geometry=True,
+        jet_scale_init=0.1,
+        jet_sigma_init=0.2,
     ):
         super().__init__()
         self.num_gaussians = num_gaussians
@@ -41,6 +49,15 @@ class SplattingResidualEncoder(nn.Module):
         self.stride = stride
         self.gate_window_half = gate_window_half
         self.gamma_complement = gamma_complement
+        
+        self.residual_mode = residual_mode
+        self.num_implicit_gaussians = num_implicit_gaussians
+        self.jet_max_shift_samples = jet_max_shift_samples
+        self.jet_score_temperature = jet_score_temperature
+        self.jet_density_tau = jet_density_tau
+        self.jet_detach_geometry = jet_detach_geometry
+        self.jet_scale_init = jet_scale_init
+        self.jet_sigma_init = jet_sigma_init
 
         # 1. CAS Gating
         if self.density_mode == "cas":
@@ -55,8 +72,8 @@ class SplattingResidualEncoder(nn.Module):
         else:
             self.cas_gating = None
 
-        # 2. Residual Gating/Router
-        if self.use_residual:
+        # 2. Residual Gating/Router (only instantiated in legacy mode)
+        if self.use_residual and self.residual_mode == "legacy_dynamic_shell":
             self.residual_router = AdaptiveResidualRouter(
                 d_model=d_model,
                 gate_type=gate_type,
@@ -68,12 +85,23 @@ class SplattingResidualEncoder(nn.Module):
 
         # 3. Patch Residual
         if self.use_residual:
-            self.patch_residual = PatchResidualProjection(
-                seq_len=seq_len,
-                patch_len=patch_len,
-                stride=stride,
-                d_model=d_model
-            )
+            if self.residual_mode == "gaussian_jet":
+                self.patch_residual = GaussianJetProjection(
+                    seq_len=seq_len,
+                    patch_len=patch_len,
+                    stride=stride,
+                    d_model=d_model,
+                    num_implicit_gaussians=num_implicit_gaussians,
+                    jet_scale_init=jet_scale_init,
+                    sigma_init=jet_sigma_init,
+                )
+            else:
+                self.patch_residual = PatchResidualProjection(
+                    seq_len=seq_len,
+                    patch_len=patch_len,
+                    stride=stride,
+                    d_model=d_model
+                )
             self.patch_num = self.patch_residual.patch_num
         else:
             self.patch_residual = None
@@ -111,6 +139,11 @@ class SplattingResidualEncoder(nn.Module):
         self.last_sigma = None
         self.last_gate_hard = None
 
+        # Jet specific diagnostic states
+        self.last_score_shift = None
+        self.last_score_confidence = None
+        self.last_score_weights = None
+
     @property
     def generator(self):
         # For compatibility with tests that access generator
@@ -135,6 +168,78 @@ class SplattingResidualEncoder(nn.Module):
         if self.cas_gating is not None:
             return self.cas_gating.k_base
         raise AttributeError("k_base is only available in CAS density mode")
+
+    def _compute_gaussian_score_shift(
+        self,
+        mu,
+        sigma,
+        alpha_effective,
+        patch_num,
+        device,
+    ):
+        t = torch.linspace(
+            0,
+            1,
+            patch_num,
+            device=device,
+            dtype=mu.dtype,
+        )
+        
+        distance = (
+            t.view(1, patch_num, 1)
+            - mu.unsqueeze(1)
+        )
+        
+        eps = 1e-5
+        score_weights = (
+            alpha_effective.unsqueeze(1)
+            * torch.exp(
+                -(distance ** 2)
+                / (2 * sigma.unsqueeze(1) ** 2 + eps)
+            )
+        )
+        
+        precision = 1.0 / (
+            sigma.unsqueeze(1) ** 2 + eps
+        )
+        
+        weighted_precision = score_weights * precision
+        
+        mean_shift = (
+            weighted_precision
+            * (
+                mu.unsqueeze(1)
+                - t.view(1, patch_num, 1)
+            )
+        ).sum(dim=-1, keepdim=True) / (
+            weighted_precision.sum(
+                dim=-1,
+                keepdim=True,
+            )
+            + eps
+        )
+        
+        max_shift = (
+            self.jet_max_shift_samples
+            / max(self.patch_len - 1, 1)
+        )
+        
+        delta = max_shift * torch.tanh(
+            self.jet_score_temperature
+            * mean_shift
+            / (max_shift + eps)
+        )
+        
+        density = score_weights.sum(
+            dim=-1,
+            keepdim=True,
+        )
+        
+        confidence = density / (
+            density + self.jet_density_tau
+        )
+        
+        return delta, confidence, score_weights
 
     def forward(self, x_seq, patch_num, is_flat=False):
         if not is_flat:
@@ -164,36 +269,87 @@ class SplattingResidualEncoder(nn.Module):
             self.last_active_count = self.last_gate_hard.sum(dim=-1).mean()
             self.last_sigma = sigma
 
-        # Forward Residual (Two-Pass Strategy)
+        # Forward Residual
         if self.use_residual and self.gs_residual_weight != 0.0:
-            # Pass 1: 获取未对齐的基准投影，用来为路由器提供状态估计
-            res_proj_base = self.patch_residual.get_base_projection(x_seq, batch_channel)
-            
-            # Pass 2: 计算路由状态与自适应方向（传入 res_proj_base 代替 res_proj）
-            gate_scale, gate_direction, gate_strength, gate_route_probs = self.residual_router(
-                weights, rendered_event, res_proj_base, batch_channel, patch_num, x_seq.device
-            )
-            
-            self.last_gate_direction = gate_direction
-            self.last_gate_strength = gate_strength
-            self.last_gate_route_probs = gate_route_probs
-            
-            # Copy diagnostic attributes if available
-            self.last_raw_lga = getattr(self.residual_router, "last_raw_lga", None)
-            self.last_z_lga = getattr(self.residual_router, "last_z_lga", None)
-            self.last_energy = getattr(self.residual_router, "last_energy", None)
-            
-            if self.gate_type not in ["forward", "reverse", "adaptive_direction"] and self.density_mode == "cas":
-                active_ratio = gate_effective.sum(dim=-1, keepdim=True) / self.num_gaussians
-                scale = 1.5 - self.gamma_complement * active_ratio
-                self.last_gate_scale = scale.unsqueeze(1).expand(-1, patch_num, 1)
+            if self.residual_mode == "gaussian_jet":
+                delta, confidence, score_weights = self._compute_gaussian_score_shift(
+                    mu=mu,
+                    sigma=sigma,
+                    alpha_effective=alpha_effective,
+                    patch_num=patch_num,
+                    device=x_seq.device,
+                )
+                
+                if self.jet_detach_geometry:
+                    delta = delta.detach()
+                    confidence = confidence.detach()
+                    score_weights = score_weights.detach()
+                
+                res_proj = self.patch_residual(
+                    x_seq=x_seq,
+                    delta=delta,
+                    confidence=confidence,
+                )
+                
+                rendered_event = rendered_event + self.gs_residual_weight * res_proj
+                
+                # Compatibility diagnostic attributes
+                eps = 1e-5
+                max_shift = self.jet_max_shift_samples / max(self.patch_len - 1, 1)
+                self.last_gate_direction = (delta / (max_shift + eps)).detach()
+                self.last_gate_strength = confidence.detach()
+                self.last_gate_scale = torch.ones_like(confidence)
+                
+                self.last_score_shift = delta.detach()
+                self.last_score_confidence = confidence.detach()
+                self.last_score_weights = score_weights.detach()
+                
+                neutral = 1.0 - confidence
+                forward_dir = confidence * torch.relu(self.last_gate_direction)
+                reverse_dir = confidence * torch.relu(-self.last_gate_direction)
+                normalizer = neutral + forward_dir + reverse_dir + eps
+                
+                self.last_gate_route_probs = torch.cat(
+                    [
+                        neutral / normalizer,
+                        forward_dir / normalizer,
+                        reverse_dir / normalizer,
+                    ],
+                    dim=-1,
+                )
+                
+                self.last_raw_lga = None
+                self.last_z_lga = None
+                self.last_energy = None
             else:
-                self.last_gate_scale = gate_scale
-            
-            # Pass 3: 传入自适应路由方向，获取最终精确对齐并经高斯掩码调制后的残差特征
-            res_proj = self.patch_residual(x_seq, batch_channel, gate_direction=gate_direction)
-            
-            rendered_event = rendered_event + self.gs_residual_weight * self.last_gate_scale * res_proj
+                # Pass 1: 获取未对齐的基准投影，用来为路由器提供状态估计
+                res_proj_base = self.patch_residual.get_base_projection(x_seq, batch_channel)
+                
+                # Pass 2: 计算路由状态与自适应方向（传入 res_proj_base 代替 res_proj）
+                gate_scale, gate_direction, gate_strength, gate_route_probs = self.residual_router(
+                    weights, rendered_event, res_proj_base, batch_channel, patch_num, x_seq.device
+                )
+                
+                self.last_gate_direction = gate_direction
+                self.last_gate_strength = gate_strength
+                self.last_gate_route_probs = gate_route_probs
+                
+                # Copy diagnostic attributes if available
+                self.last_raw_lga = getattr(self.residual_router, "last_raw_lga", None)
+                self.last_z_lga = getattr(self.residual_router, "last_z_lga", None)
+                self.last_energy = getattr(self.residual_router, "last_energy", None)
+                
+                if self.gate_type not in ["forward", "reverse", "adaptive_direction"] and self.density_mode == "cas":
+                    active_ratio = gate_effective.sum(dim=-1, keepdim=True) / self.num_gaussians
+                    scale = 1.5 - self.gamma_complement * active_ratio
+                    self.last_gate_scale = scale.unsqueeze(1).expand(-1, patch_num, 1)
+                else:
+                    self.last_gate_scale = gate_scale
+                
+                # Pass 3: 传入自适应路由方向，获取最终精确对齐并经高斯掩码调制后的残差特征
+                res_proj = self.patch_residual(x_seq, batch_channel, gate_direction=gate_direction)
+                
+                rendered_event = rendered_event + self.gs_residual_weight * self.last_gate_scale * res_proj
         else:
             self.last_gate_direction = torch.zeros(batch_channel, patch_num, 1, device=x_seq.device)
             self.last_gate_strength = torch.zeros(batch_channel, patch_num, 1, device=x_seq.device)

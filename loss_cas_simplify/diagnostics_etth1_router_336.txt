@@ -2,41 +2,41 @@
 ==================================================
       [Adaptive Gating Direction Diagnostics]      
 --------------------------------------------------
-Direction -> mean: -0.0162 | std: 0.0393 | abs_mean: 0.0346
-Direction -> min/max: -0.1630 / 0.1986
+Direction -> mean: -0.0159 | std: 0.0691 | abs_mean: 0.0597
+Direction -> min/max: -0.2407 / 0.3808
 Route Probabilities:
-  Neutral -> mean: 0.3811 | std: 0.0915
-  Forward -> mean: 0.3014 | std: 0.0485
-  Reverse -> mean: 0.3175 | std: 0.0511
-Route Confidence -> max_prob mean: 0.4178 | std: 0.0493
-Uncertain ratio  -> max_prob < 0.45: 72.52%
+  Neutral -> mean: 0.4189 | std: 0.1620
+  Forward -> mean: 0.2826 | std: 0.0868
+  Reverse -> mean: 0.2985 | std: 0.0893
+Route Confidence -> max_prob mean: 0.4866 | std: 0.0848
+Uncertain ratio  -> max_prob < 0.45: 38.69%
 Route Argmax Ratios:
-  Neutral: 68.08% | Forward: 8.23% | Reverse: 23.69%
+  Neutral: 67.93% | Forward: 12.37% | Reverse: 19.70%
 --------------------------------------------------
-Strength  -> mean: 0.6189 | std: 0.0915 | min/max: 0.3752 / 0.9731
-Strength ratios -> Active(>0.5): 93.92% | Weak(<0.1): 0.00% | Mid: 6.08%
+Strength  -> mean: 0.5811 | std: 0.1620 | min/max: 0.2004 / 0.9989
+Strength ratios -> Active(>0.5): 61.68% | Weak(<0.1): 0.00% | Mid: 38.32%
 --------------------------------------------------
       [Effective Gating (Strength * Direction)]      
 --------------------------------------------------
-Eff_Dir   -> mean: -0.0103 | std: 0.0257 | abs_mean: 0.0219
-Eff_Dir   -> min/max: -0.1487 / 0.1725
-Eff_Dir ratios -> Positive(>0.05): 2.22%
-                  Negative(<-0.05): 4.75%
-                  Near Zero(<=0.05): 93.03%
-Scale     -> mean: 0.9935 | std: 0.0157
-Decision  -> Current Strategy: Uncertain / Neutral Gating Strategy (High uncertainty across patches)
+Eff_Dir   -> mean: -0.0097 | std: 0.0482 | abs_mean: 0.0373
+Eff_Dir   -> min/max: -0.2390 / 0.3742
+Eff_Dir ratios -> Positive(>0.05): 9.30%
+                  Negative(<-0.05): 15.96%
+                  Near Zero(<=0.05): 74.75%
+Scale     -> mean: 0.9968 | std: 0.0138
+Decision  -> Current Strategy: Mixed Gating
 ==================================================
 
 
 ==================================================
       [Local Geometry Attention (LGA) Diagnostics]      
 --------------------------------------------------
-Raw LGA Distance -> mean: 2.236175 | std: 2.267201
-Raw LGA Distance -> min: 0.008171 | max: 75.115051
-LGA Mean (Routed to Neutral): -0.3540
-LGA Mean (Routed to Forward): 0.7616
-LGA Mean (Routed to Reverse): 0.7527
-Correlation(LGA, Energy) -> mean: 0.1925
+Raw LGA Distance -> mean: 1.956873 | std: 1.933560
+Raw LGA Distance -> min: 0.003887 | max: 80.509911
+LGA Mean (Routed to Neutral): -0.3088
+LGA Mean (Routed to Forward): 0.6040
+LGA Mean (Routed to Reverse): 0.6856
+Correlation(LGA, Energy) -> mean: 0.3164
 ==================================================
 
 
@@ -44,17 +44,17 @@ Correlation(LGA, Energy) -> mean: 0.1925
       [Mechanistic Metric (CAS / Gating Cascade)]      
 --------------------------------------------------
 Independent Prob (p_i):
-  [ 0.4518 | 0.5646 | 0.3027 | 0.5939 | 0.3741 | 0.5391 | 0.4316 | 0.4922 | 0.4768 | 0.5374 ]
+  [ 0.4836 | 0.4965 | 0.4881 | 0.6212 | 0.5866 | 0.3713 | 0.2865 | 0.5078 | 0.5392 | 0.5044 ]
 Cascaded Prob (pi_i):
-  [ 1.0000 | 1.0000 | 0.3027 | 0.1790 | 0.0678 | 0.0363 | 0.0158 | 0.0078 | 0.0037 | 0.0020 ]
+  [ 1.0000 | 1.0000 | 0.4881 | 0.3024 | 0.1784 | 0.0638 | 0.0181 | 0.0092 | 0.0049 | 0.0025 ]
 --------------------------------------------------
 Effective Gaussian Count (EGC) Summary:
-  Mean EGC : 2.6151
-  Min EGC  : 2.4176
-  Max EGC  : 2.7909
+  Mean EGC : 3.0675
+  Min EGC  : 2.9451
+  Max EGC  : 3.3713
 --------------------------------------------------
 Gaussian Bandwidth (Sigma) Bifurcation:
-  Active Nuclei Sigma (pi_i > 0.5)   : 0.4152
-  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.7032
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.5987
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6777
   Bifurcation Status : WEAK / NO BIFURCATION
 ==================================================

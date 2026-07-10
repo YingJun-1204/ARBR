@@ -77,6 +77,16 @@ if __name__ == "__main__":
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for configurations and diagnostics")
 
+    # Gaussian Jet parameters
+    parser.add_argument("--residual_mode", type=str, default="gaussian_jet", choices=["legacy_dynamic_shell", "gaussian_jet"], help="Residual path mode")
+    parser.add_argument("--num_implicit_gaussians", type=int, default=4)
+    parser.add_argument("--jet_max_shift_samples", type=float, default=1.0)
+    parser.add_argument("--jet_score_temperature", type=float, default=1.0)
+    parser.add_argument("--jet_density_tau", type=float, default=1.0)
+    parser.add_argument("--jet_detach_geometry", type=int, default=1)
+    parser.add_argument("--jet_scale_init", type=float, default=0.1)
+    parser.add_argument("--jet_sigma_init", type=float, default=0.2)
+
     # optimization
     parser.add_argument("--no_save_checkpoint", action="store_true", default=False, help="Cache weights in RAM and skip writing checkpoints to disk.")
     parser.add_argument("--num_workers", type=int, default=0)

@@ -2,28 +2,28 @@
 ==================================================
       [Adaptive Gating Direction Diagnostics]      
 --------------------------------------------------
-Direction -> mean: -0.0121 | std: 0.0524 | abs_mean: 0.0411
-Direction -> min/max: -0.2721 / 0.2456
+Direction -> mean: -0.0099 | std: 0.0542 | abs_mean: 0.0477
+Direction -> min/max: -0.1709 / 0.2489
 Route Probabilities:
-  Neutral -> mean: 0.3467 | std: 0.0752
-  Forward -> mean: 0.3206 | std: 0.0444
-  Reverse -> mean: 0.3327 | std: 0.0472
-Route Confidence -> max_prob mean: 0.3945 | std: 0.0349
-Uncertain ratio  -> max_prob < 0.45: 92.36%
+  Neutral -> mean: 0.3474 | std: 0.0988
+  Forward -> mean: 0.3213 | std: 0.0562
+  Reverse -> mean: 0.3313 | std: 0.0566
+Route Confidence -> max_prob mean: 0.4113 | std: 0.0422
+Uncertain ratio  -> max_prob < 0.45: 80.32%
 Route Argmax Ratios:
-  Neutral: 54.81% | Forward: 15.53% | Reverse: 29.66%
+  Neutral: 55.41% | Forward: 17.70% | Reverse: 26.89%
 --------------------------------------------------
-Strength  -> mean: 0.6533 | std: 0.0752 | min/max: 0.4476 / 0.9671
-Strength ratios -> Active(>0.5): 99.75% | Weak(<0.1): 0.00% | Mid: 0.25%
+Strength  -> mean: 0.6526 | std: 0.0988 | min/max: 0.4030 / 0.9901
+Strength ratios -> Active(>0.5): 98.30% | Weak(<0.1): 0.00% | Mid: 1.70%
 --------------------------------------------------
       [Effective Gating (Strength * Direction)]      
 --------------------------------------------------
-Eff_Dir   -> mean: -0.0082 | std: 0.0355 | abs_mean: 0.0272
-Eff_Dir   -> min/max: -0.2228 / 0.2243
-Eff_Dir ratios -> Positive(>0.05): 5.53%
-                  Negative(<-0.05): 10.23%
-                  Near Zero(<=0.05): 84.24%
-Scale     -> mean: 0.9976 | std: 0.0105
+Eff_Dir   -> mean: -0.0065 | std: 0.0375 | abs_mean: 0.0318
+Eff_Dir   -> min/max: -0.1616 / 0.2425
+Eff_Dir ratios -> Positive(>0.05): 7.97%
+                  Negative(<-0.05): 8.96%
+                  Near Zero(<=0.05): 83.07%
+Scale     -> mean: 0.9980 | std: 0.0108
 Decision  -> Current Strategy: Uncertain / Neutral Gating Strategy (High uncertainty across patches)
 ==================================================
 
@@ -31,12 +31,12 @@ Decision  -> Current Strategy: Uncertain / Neutral Gating Strategy (High uncerta
 ==================================================
       [Local Geometry Attention (LGA) Diagnostics]      
 --------------------------------------------------
-Raw LGA Distance -> mean: 2.475345 | std: 3.150488
-Raw LGA Distance -> min: 0.000572 | max: 90.488449
-LGA Mean (Routed to Neutral): -0.3798
-LGA Mean (Routed to Forward): 0.4511
-LGA Mean (Routed to Reverse): 0.4657
-Correlation(LGA, Energy) -> mean: 0.1655
+Raw LGA Distance -> mean: 2.043252 | std: 2.123287
+Raw LGA Distance -> min: 0.004773 | max: 56.943787
+LGA Mean (Routed to Neutral): -0.3186
+LGA Mean (Routed to Forward): 0.3567
+LGA Mean (Routed to Reverse): 0.4217
+Correlation(LGA, Energy) -> mean: 0.2071
 ==================================================
 
 
@@ -44,17 +44,17 @@ Correlation(LGA, Energy) -> mean: 0.1655
       [Mechanistic Metric (CAS / Gating Cascade)]      
 --------------------------------------------------
 Independent Prob (p_i):
-  [ 0.4496 | 0.5199 | 0.4814 | 0.6648 | 0.3060 | 0.4118 | 0.4832 | 0.5796 | 0.5961 | 0.4137 ]
+  [ 0.4888 | 0.5139 | 0.4942 | 0.5689 | 0.5088 | 0.4431 | 0.3795 | 0.5323 | 0.5388 | 0.5106 ]
 Cascaded Prob (pi_i):
-  [ 1.0000 | 1.0000 | 0.4814 | 0.3204 | 0.0954 | 0.0397 | 0.0191 | 0.0109 | 0.0065 | 0.0027 ]
+  [ 1.0000 | 1.0000 | 0.4942 | 0.2808 | 0.1428 | 0.0632 | 0.0240 | 0.0128 | 0.0069 | 0.0035 ]
 --------------------------------------------------
 Effective Gaussian Count (EGC) Summary:
-  Mean EGC : 2.9761
-  Min EGC  : 2.7549
-  Max EGC  : 3.1157
+  Mean EGC : 3.0281
+  Min EGC  : 2.7838
+  Max EGC  : 3.1201
 --------------------------------------------------
 Gaussian Bandwidth (Sigma) Bifurcation:
-  Active Nuclei Sigma (pi_i > 0.5)   : 0.3480
-  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6931
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.6447
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.6838
   Bifurcation Status : WEAK / NO BIFURCATION
 ==================================================
