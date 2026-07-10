@@ -2,27 +2,27 @@
 ==================================================
       [Adaptive Gating Direction Diagnostics]      
 --------------------------------------------------
-Direction -> mean: -0.0694 | std: 0.4608 | abs_mean: 0.2405
+Direction -> mean: -0.1946 | std: 0.9252 | abs_mean: 0.9221
 Direction -> min/max: -0.9998 / 0.9998
 Route Probabilities:
-  Neutral -> mean: 0.9959 | std: 0.0180
-  Forward -> mean: 0.0017 | std: 0.0120
-  Reverse -> mean: 0.0023 | std: 0.0137
-Route Confidence -> max_prob mean: 0.9959 | std: 0.0180
+  Neutral -> mean: 0.8768 | std: 0.1049
+  Forward -> mean: 0.0532 | std: 0.0936
+  Reverse -> mean: 0.0700 | std: 0.0984
+Route Confidence -> max_prob mean: 0.8768 | std: 0.1048
 Uncertain ratio  -> max_prob < 0.45: 0.00%
 Route Argmax Ratios:
-  Neutral: 100.00% | Forward: 0.00% | Reverse: 0.00%
+  Neutral: 99.91% | Forward: 0.05% | Reverse: 0.05%
 --------------------------------------------------
-Strength  -> mean: 0.0049 | std: 0.0205 | min/max: 0.0000 / 0.2975
-Strength ratios -> Active(>0.5): 0.00% | Weak(<0.1): 98.67% | Mid: 1.33%
+Strength  -> mean: 0.1331 | std: 0.1088 | min/max: 0.0000 / 0.5313
+Strength ratios -> Active(>0.5): 0.17% | Weak(<0.1): 43.73% | Mid: 56.10%
 --------------------------------------------------
       [Effective Gating (Strength * Direction)]      
 --------------------------------------------------
-Eff_Dir   -> mean: -0.0006 | std: 0.0183 | abs_mean: 0.0040
-Eff_Dir   -> min/max: -0.2878 / 0.2875
-Eff_Dir ratios -> Positive(>0.05): 1.10%
-                  Negative(<-0.05): 1.53%
-                  Near Zero(<=0.05): 97.37%
+Eff_Dir   -> mean: -0.0168 | std: 0.1594 | abs_mean: 0.1219
+Eff_Dir   -> min/max: -0.5241 / 0.5238
+Eff_Dir ratios -> Positive(>0.05): 29.33%
+                  Negative(<-0.05): 39.91%
+                  Near Zero(<=0.05): 30.76%
 Scale     -> mean: 1.0000 | std: 0.0000
 Decision  -> Current Strategy: Mostly Neutral / No Density Gating
 ==================================================
@@ -32,17 +32,17 @@ Decision  -> Current Strategy: Mostly Neutral / No Density Gating
       [Mechanistic Metric (CAS / Gating Cascade)]      
 --------------------------------------------------
 Independent Prob (p_i):
-  [ 0.4297 | 0.4967 | 0.4533 | 0.3705 | 0.4324 | 0.4271 | 0.3353 | 0.4974 ]
+  [ 0.4500 | 0.4990 | 0.4758 | 0.5023 | 0.4906 | 0.4286 | 0.3591 | 0.4640 ]
 Cascaded Prob (pi_i):
-  [ 1.0000 | 0.4967 | 0.2252 | 0.0835 | 0.0362 | 0.0155 | 0.0053 | 0.0026 ]
+  [ 1.0000 | 0.4990 | 0.2374 | 0.1192 | 0.0585 | 0.0251 | 0.0091 | 0.0042 ]
 --------------------------------------------------
 Effective Gaussian Count (EGC) Summary:
-  Mean EGC : 1.8651
-  Min EGC  : 1.8249
-  Max EGC  : 1.9069
+  Mean EGC : 1.9526
+  Min EGC  : 1.9298
+  Max EGC  : 1.9799
 --------------------------------------------------
 Gaussian Bandwidth (Sigma) Bifurcation:
-  Active Nuclei Sigma (pi_i > 0.5)   : 0.0365
-  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.7256
+  Active Nuclei Sigma (pi_i > 0.5)   : 0.3086
+  Truncated Nuclei Sigma (pi_i <= 0.5) : 0.7165
   Bifurcation Status : WEAK / NO BIFURCATION
 ==================================================

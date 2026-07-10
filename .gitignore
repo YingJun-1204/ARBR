@@ -27,4 +27,5 @@ test_batch_256/
 scratch/test_output/
 scratch/test_output_1024/
 scratch/test_output_v4/
+scratch/*.log
 

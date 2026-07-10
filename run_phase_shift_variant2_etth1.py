@@ -61,10 +61,10 @@ def get_parser():
     parser.add_argument("--gate_lambda", type=float, default=0.05)
     parser.add_argument("--use_occlusion", action="store_true", default=False)
     parser.add_argument("--use_residual", action="store_true", default=True)
-    parser.add_argument("--gs_residual_weight", type=float, default=0.55)
+    parser.add_argument("--gs_residual_weight", type=float, default=0.35)
     parser.add_argument("--gate_type", type=str, default="adaptive_direction")
-    parser.add_argument("--gate_beta", type=float, default=0.2)
-    parser.add_argument("--gate_window_half", type=int, default=4)
+    parser.add_argument("--gate_beta", type=float, default=0.4)
+    parser.add_argument("--gate_window_half", type=int, default=1)
     parser.add_argument("--k_base", type=int, default=-1)
     parser.add_argument("--output_dir", type=str, default="loss_mdagV12")
 
@@ -73,7 +73,7 @@ def get_parser():
     parser.add_argument("--itr", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--patience", type=int, default=6)
-    parser.add_argument("--learning_rate", type=float, default=0.0008)
+    parser.add_argument("--learning_rate", type=float, default=0.0015)
     parser.add_argument("--des", type=str, default="Ablation_ETTh1_router")
     parser.add_argument("--loss", type=str, default="MSE")
     parser.add_argument("--lradj", type=str, default="cosine")
@@ -492,9 +492,70 @@ def format_accuracy_cell(idx, delta_t, results, baseline_idx):
     )
 
 
+def load_params_from_bash_script(bash_path, target_pred_len=96):
+    """
+    Parses a bash script to find the parameter configurations corresponding to a target pred_len.
+    """
+    if not os.path.exists(bash_path):
+        print(f"[Warning] Bash script not found: {bash_path}")
+        return {}
+
+    with open(bash_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    import re
+    # Match any python -u run.py block up to the next python command or echo separator
+    python_blocks = re.findall(r'python\s+-u\s+run\.py(.*?)(?=python\s+-u\s+run\.py|echo "==================== Starting|$)', content, re.DOTALL)
+    
+    for block in python_blocks:
+        cleaned_block = block.replace('\\\n', ' ').replace('\\\r\n', ' ')
+        pred_len_match = re.search(r'--pred_len\s+(\d+)', cleaned_block)
+        if pred_len_match and int(pred_len_match.group(1)) == target_pred_len:
+            args_dict = {}
+            parts = cleaned_block.split('--')
+            for part in parts[1:]:
+                part = part.strip()
+                if not part:
+                    continue
+                subparts = part.split()
+                if len(subparts) == 1:
+                    key = subparts[0]
+                    args_dict[key] = True
+                elif len(subparts) > 1:
+                    key = subparts[0]
+                    val = subparts[1].strip('"\'')
+                    if val == '"$@"':
+                        continue
+                    if val.lower() == 'true':
+                        args_dict[key] = True
+                    elif val.lower() == 'false':
+                        args_dict[key] = False
+                    else:
+                        try:
+                            if '.' in val or 'e' in val.lower():
+                                args_dict[key] = float(val)
+                            else:
+                                args_dict[key] = int(val)
+                        except ValueError:
+                            args_dict[key] = val
+            return args_dict
+    return {}
+
+
 def main():
     parser = get_parser()
     args, _ = parser.parse_known_args()
+
+    # Load parameters dynamically from bash script to avoid hardcoding
+    bash_path = "./scripts/run_etth1_cas.sh"
+    bash_params = load_params_from_bash_script(bash_path, args.pred_len)
+    if bash_params:
+        print(f"Dynamically loaded parameters from {bash_path} for pred_len={args.pred_len}:")
+        for k, v in bash_params.items():
+            setattr(args, k, v)
+            print(f"  {k} = {v}")
+    else:
+        print(f"[Warning] No parameters loaded from {bash_path} for pred_len={args.pred_len}. Using default parameters.")
 
     if args.gate_type == "none":
         args.gate_type = None

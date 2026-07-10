@@ -27,7 +27,7 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0015 \
+  --learning_rate 0.001 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -38,11 +38,11 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.35 \
+  --gs_residual_weight 0.45 \
   --gate_type adaptive_direction \
-  --gate_beta 0.4 \
-  --gate_lambda 0.05 \
-  --gate_window_half 1 \
+  --gate_beta 0.3 \
+  --gate_lambda 0.08 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
 
@@ -71,7 +71,7 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0015 \
+  --learning_rate 0.001 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -82,11 +82,11 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.35 \
+  --gs_residual_weight 0.45 \
   --gate_type adaptive_direction \
-  --gate_beta 0.4 \
-  --gate_lambda 0.05 \
-  --gate_window_half 1 \
+  --gate_beta 0.3 \
+  --gate_lambda 0.08 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
 
@@ -115,7 +115,7 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0015 \
+  --learning_rate 0.001 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -126,11 +126,11 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.35 \
+  --gs_residual_weight 0.45 \
   --gate_type adaptive_direction \
-  --gate_beta 0.4 \
-  --gate_lambda 0.05 \
-  --gate_window_half 1 \
+  --gate_beta 0.3 \
+  --gate_lambda 0.08 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
 
@@ -159,7 +159,7 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.9 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0015 \
+  --learning_rate 0.001 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -170,10 +170,10 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.35 \
+  --gs_residual_weight 0.45 \
   --gate_type adaptive_direction \
-  --gate_beta 0.4 \
-  --gate_lambda 0.05 \
-  --gate_window_half 1 \
+  --gate_beta 0.3 \
+  --gate_lambda 0.08 \
+  --gate_window_half 4 \
   --des Ablation_ETTh1_router \
   "$@"
