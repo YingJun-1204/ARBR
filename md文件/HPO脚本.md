@@ -1,0 +1,1 @@
+python .\run_adaptive_tuning.py --batch_size 256 --batches 1 --trials_per_batch 180 --datasets etth1 etth2 ettm1 ettm2  weather --output_dir loss_mdagV13_256 --pred_len 192

@@ -29,3 +29,8 @@ scratch/test_output_1024/
 scratch/test_output_v4/
 scratch/*.log
 
+# Tuning logs and validation outputs
+loss_mdagV13_256/
+loss_cas_simplify/
+validation_output/
+

@@ -14,7 +14,19 @@ if __name__ == "__main__":
     fix_seed = 2021
     random.seed(fix_seed)
     torch.manual_seed(fix_seed)
+    torch.cuda.manual_seed(fix_seed)
+    torch.cuda.manual_seed_all(fix_seed)
     np.random.seed(fix_seed)
+    
+    # 强制启用确定性算法以确保复现
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except Exception:
+        pass
+
+
 
     parser = argparse.ArgumentParser(description="Representation baseline forecasting")
 

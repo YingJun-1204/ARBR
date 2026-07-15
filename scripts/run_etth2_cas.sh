@@ -1,16 +1,16 @@
 #!/bin/bash
-# 运行 ETTh1 数据集下的最优 Adaptive Direction Router 配置 (Horizon=96, 192, 336, 720, CAS Density Mode)
-# 请在项目根目录下执行：sh scripts/run_etth1_cas.sh
+# 运行 ETTh2 数据集下的最优 Adaptive Direction Router 配置 (Horizon=96, 192, 336, 720, CAS Density Mode)
+# 请在项目根目录下执行：sh scripts/run_etth2_cas.sh
 
-echo "==================== Starting ETTh1 Horizon 96 ===================="
+echo "==================== Starting ETTh2 Horizon 96 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --root_path ./data \
-  --data_path ETTh1.csv \
-  --model_id etth1_router_96 \
+  --data_path ETTh2.csv \
+  --model_id etth2_router_96 \
   --model SplatTS \
-  --data ETTh1 \
+  --data ETTh2 \
   --features M \
   --seq_len 512 \
   --pred_len 96 \
@@ -25,36 +25,36 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.9 \
+  --gs_dropout 0.85 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.001 \
+  --learning_rate 0.0003 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
   --dropout 0.0 \
-  --head_dropout 0.9 \
+  --head_dropout 0.85 \
   --head_dropout_position pre \
   --density_mode cas \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.45 \
+  --gs_residual_weight 0.5 \
   --gate_type adaptive_direction \
-  --gate_beta 0.3 \
+  --gate_beta 0.15 \
   --gate_lambda 0.08 \
-  --gate_window_half 4 \
-  --des Ablation_ETTh1_router \
+  --gate_window_half 1 \
+  --des Ablation_ETTh2_router \
   "$@"
 
-echo "==================== Starting ETTh1 Horizon 192 ===================="
+echo "==================== Starting ETTh2 Horizon 192 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --root_path ./data \
-  --data_path ETTh1.csv \
-  --model_id etth1_router_192 \
+  --data_path ETTh2.csv \
+  --model_id etth2_router_192 \
   --model SplatTS \
-  --data ETTh1 \
+  --data ETTh2 \
   --features M \
   --seq_len 512 \
   --pred_len 192 \
@@ -71,7 +71,7 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.85 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.002 \
+  --learning_rate 0.0002 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
@@ -82,23 +82,23 @@ python -u run.py \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.35 \
+  --gs_residual_weight 0.4 \
   --gate_type adaptive_direction \
-  --gate_beta 0.25 \
-  --gate_lambda 0.08 \
-  --gate_window_half 1 \
-  --des Ablation_ETTh1_router \
+  --gate_beta 0.45 \
+  --gate_lambda 0.01 \
+  --gate_window_half 2 \
+  --des Ablation_ETTh2_router \
   "$@"
 
-echo "==================== Starting ETTh1 Horizon 336 ===================="
+echo "==================== Starting ETTh2 Horizon 336 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --root_path ./data \
-  --data_path ETTh1.csv \
-  --model_id etth1_router_336 \
+  --data_path ETTh2.csv \
+  --model_id etth2_router_336 \
   --model SplatTS \
-  --data ETTh1 \
+  --data ETTh2 \
   --features M \
   --seq_len 512 \
   --pred_len 336 \
@@ -113,36 +113,36 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.9 \
+  --gs_dropout 0.8 \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0015 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
   --dropout 0.0 \
-  --head_dropout 0.9 \
+  --head_dropout 0.8 \
   --head_dropout_position pre \
   --density_mode cas \
   --gs_lambda 0.0 \
   --num_workers 0 \
   --use_residual \
-  --gs_residual_weight 0.4 \
+  --gs_residual_weight 0.55 \
   --gate_type adaptive_direction \
-  --gate_beta 0.5 \
+  --gate_beta 0.25 \
   --gate_lambda 0.1 \
-  --gate_window_half 1 \
-  --des Ablation_ETTh1_router \
+  --gate_window_half 4 \
+  --des Ablation_ETTh2_router \
   "$@"
 
-echo "==================== Starting ETTh1 Horizon 720 ===================="
+echo "==================== Starting ETTh2 Horizon 720 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
   --root_path ./data \
-  --data_path ETTh1.csv \
-  --model_id etth1_router_720 \
+  --data_path ETTh2.csv \
+  --model_id etth2_router_720 \
   --model SplatTS \
-  --data ETTh1 \
+  --data ETTh2 \
   --features M \
   --seq_len 512 \
   --pred_len 720 \
@@ -157,14 +157,14 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.7 \
+  --gs_dropout 0.8 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0003 \
+  --learning_rate 0.0005 \
   --lradj cosine \
   --train_epochs 30 \
   --patience 6 \
   --dropout 0.0 \
-  --head_dropout 0.7 \
+  --head_dropout 0.8 \
   --head_dropout_position pre \
   --density_mode cas \
   --gs_lambda 0.0 \
@@ -172,8 +172,8 @@ python -u run.py \
   --use_residual \
   --gs_residual_weight 0.6 \
   --gate_type adaptive_direction \
-  --gate_beta 0.45 \
+  --gate_beta 0.5 \
   --gate_lambda 0.01 \
-  --gate_window_half 3 \
-  --des Ablation_ETTh1_router \
+  --gate_window_half 2 \
+  --des Ablation_ETTh2_router \
   "$@"
