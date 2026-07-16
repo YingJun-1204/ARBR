@@ -71,4 +71,4 @@ class TemporalGaussianSplatting(nn.Module):
             weights = alpha_effective.unsqueeze(1) * torch.exp(-(d**2) / (2 * sigma.unsqueeze(1)**2))
             rendered_event = torch.sum(c.unsqueeze(1) * weights.unsqueeze(-1), dim=2)
 
-        return rendered_event, weights, mu, sigma, alpha_effective, last_density_score
+        return rendered_event, mu, sigma, alpha_effective

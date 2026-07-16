@@ -79,18 +79,13 @@ if __name__ == "__main__":
     parser.add_argument("--num_gaussians", type=int, default=8)
     parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"])
     parser.add_argument("--gs_lambda", type=float, default=0.0)
-    parser.add_argument("--gate_lambda", type=float, default=0.0, help="Gating polarization penalty multiplier (default: 0.0)")
     parser.add_argument("--use_occlusion", action="store_true", default=False)
     parser.add_argument("--use_residual", action="store_true", default=True, help="Enable Patch linear residual shortcut")
     parser.add_argument("--gs_residual_weight", type=float, default=0.1, help="Gating weight multiplier for residual shortcut")
-    parser.add_argument("--gate_type", type=str, default=None, choices=["none", "forward", "reverse", "adaptive_direction"], help="Residual gating type for ablation")
-    parser.add_argument("--gate_beta", type=float, default=0.25, help="Residual gating scaling beta")
-    parser.add_argument("--gate_window_half", type=int, default=2, choices=[1, 2, 3, 4], help="Window half-width for LGA Mahalanobis distance features")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for configurations and diagnostics")
 
     # Gaussian Jet parameters
-    parser.add_argument("--residual_mode", type=str, default="gaussian_jet", choices=["legacy_dynamic_shell", "gaussian_jet"], help="Residual path mode")
     parser.add_argument("--num_implicit_gaussians", type=int, default=4)
     parser.add_argument("--jet_max_shift_samples", type=float, default=1.0)
     parser.add_argument("--jet_score_temperature", type=float, default=1.0)
@@ -142,8 +137,6 @@ if __name__ == "__main__":
     parser.add_argument("--extra_tag", type=str, default="")
 
     args, unknown = parser.parse_known_args()
-    if args.gate_type == "none":
-        args.gate_type = None
     args = apply_variant_configs(args)
 
     print(f"Current representation: {args.representation}")

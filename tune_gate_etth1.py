@@ -135,7 +135,6 @@ def sample_params(trial, bounds, position, gate_type=None, batch_size=512):
         "batch_size": batch_size,
         "use_residual": True,
         "gs_residual_weight": gs_residual_weight,
-        "gate_beta": gate_beta,
     }
 
     if position == "none":
@@ -143,9 +142,7 @@ def sample_params(trial, bounds, position, gate_type=None, batch_size=512):
     else:
         params["head_dropout"] = gs_dropout
 
-    if gate_type == "adaptive_direction":
-        params["gate_lambda"] = trial.suggest_categorical("gate_lambda", [0.01, 0.02, 0.03, 0.05, 0.08, 0.10])
-        params["gate_window_half"] = trial.suggest_int("gate_window_half", bounds.get("gate_window_half_lower", 1), bounds.get("gate_window_half_upper", 4))
+
 
     return params
 def build_command(position, params, trial_number, density_mode="cas", pred_len=96, gate_type=None, gate_beta=0.25, output_dir="loss_cas_simplify"):
@@ -229,16 +226,11 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
         "--use_residual",
         "--gs_residual_weight",
         str(params["gs_residual_weight"]),
-        "--gate_type",
-        gate_type if gate_type is not None else "none",
-        "--gate_beta",
-        str(gate_beta),
+
         "--des",
         f"Ablation_ETTh1_{gate_str}",
     ]
-    if gate_type == "adaptive_direction":
-        cmd.extend(["--gate_lambda", str(params.get("gate_lambda", 0.0))])
-        cmd.extend(["--gate_window_half", str(params.get("gate_window_half", 2))])
+
     if "k_base" in cfg:
         cmd.extend(["--k_base", str(cfg["k_base"])])
     cmd.extend(["--no_save_checkpoint"])
@@ -420,11 +412,6 @@ def save_best_callback(position, output_dir, gate_type, density_mode, pred_len, 
                 best_tuned["dropout"] = float(best_params["gs_dropout"])
             
             best_tuned["gs_residual_weight"] = float(best_params.get("gs_residual_weight", 0.1))
-            best_tuned["gate_beta"] = float(best_params.get("gate_beta", 0.25))
-            
-            if gate_type == "adaptive_direction":
-                best_tuned["gate_lambda"] = float(best_params.get("gate_lambda", 0.0))
-                best_tuned["gate_window_half"] = int(best_params.get("gate_window_half", 2))
             
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(best_tuned, f, indent=4)
@@ -445,20 +432,17 @@ def load_seed_params(position, experiment_tag="simplify", pred_len=96, gate_type
         seed = json.load(f)
 
     seed_trial = {}
-    for key in ["learning_rate", "batch_size", "gs_residual_weight", "gate_beta", "gate_lambda", "gate_window_half"]:
+    for key in ["learning_rate", "batch_size", "gs_residual_weight"]:
         if key in seed:
             seed_trial[key] = seed[key]
 
     seed_trial["batch_size"] = seed_trial.get("batch_size", 256)
     seed_trial["gs_residual_weight"] = seed_trial.get("gs_residual_weight", 0.55)
-    seed_trial["gate_beta"] = seed_trial.get("gate_beta", 0.2)
     
     dropout_val = seed.get("gs_dropout", seed.get("dropout", 0.9))
     seed_trial["gs_dropout"] = float(dropout_val)
     
-    if gate_type == "adaptive_direction":
-        seed_trial["gate_lambda"] = seed_trial.get("gate_lambda", seed.get("gate_lambda", 0.05))
-        seed_trial["gate_window_half"] = seed_trial.get("gate_window_half", seed.get("gate_window_half", 4))
+
 
     # Check categorical choices
     categorical_choices = {

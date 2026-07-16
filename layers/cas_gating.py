@@ -3,10 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CASGating(nn.Module):
-    def __init__(self, d_model, num_gaussians, patch_len=16, stride=None, gamma_complement=0.6, k_base=-1):
+    def __init__(self, d_model, num_gaussians, patch_len=16, stride=None, k_base=-1):
         super().__init__()
         self.tau = 0.5
-        self.gamma_complement = gamma_complement
         self.patch_len = patch_len
         self.stride = stride
         self.num_gaussians = num_gaussians

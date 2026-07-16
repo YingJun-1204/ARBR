@@ -17,7 +17,7 @@ class PatchLinearRepresentation(nn.Module):
         self.projection = nn.Linear(patch_len, d_model, bias=False)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x_seq):
+    def forward(self, x_seq, patch_num=None):
         B, C, L = x_seq.shape
         x_seq = self.padding_patch_layer(x_seq)
         patches = x_seq.unfold(dimension=-1, size=self.patch_len, step=self.stride)

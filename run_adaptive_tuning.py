@@ -32,14 +32,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Automate sequential HPO studies on ETTh1, ETTh2, ETTm1 & ETTm2 for Adaptive Gating."
     )
-    parser.add_argument("--gate_beta", type=float, default=0.25, help="Scale gate beta bounds (default: 0.25)")
     parser.add_argument("--pred_len", type=int, nargs="+", default=[96], help="Prediction horizons (default: [96])")
     parser.add_argument("--batches", type=int, default=7, help="Number of optuna batches (default: 10)")
     parser.add_argument("--trials_per_batch", type=int, default=30, help="Number of trials per optuna batch (default: 30)")
     parser.add_argument("--position", type=str, default="pre", choices=["none", "pre", "post"], help="Head dropout position")
     parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"], help="Density mode selection")
     parser.add_argument("--num_gaussians", type=int, default=8, help="Fixed number of gaussians (default: 8)")
-    parser.add_argument("--output_dir", type=str, default="loss_lga_new", help="Output directory for best json configs")
+    parser.add_argument("--output_dir", type=str, default="loss_jetV14", help="Output directory for best json configs")
     parser.add_argument(
         "--datasets",
         nargs="+",
@@ -87,7 +86,6 @@ def main():
                 python_bin,
                 script,
                 "--gate_type", gate_type,
-                "--gate_beta", str(args.gate_beta),
                 "--pred_len", str(p_len),
                 "--batches", str(args.batches),
                 "--trials_per_batch", str(args.trials_per_batch),
