@@ -14,7 +14,6 @@ data/
 checkpoints/
 results/
 logs/
-exp/
 loss日志/
 
 # Output test directories
