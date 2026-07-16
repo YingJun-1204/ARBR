@@ -28,7 +28,8 @@ class Model(nn.Module):
         in_features = configs.seq_len
         
         k_base = getattr(configs, "k_base", -1)
-        if k_base == -1:
+        density_mode = getattr(configs, "density_mode", "none")
+        if self.representation_name == "gs" and density_mode == "cas" and k_base == -1:
             dataset_name = getattr(configs, "data", "").lower()
             data_path = getattr(configs, "data_path", "").lower()
             

@@ -137,6 +137,8 @@ if __name__ == "__main__":
     parser.add_argument("--extra_tag", type=str, default="")
 
     args, unknown = parser.parse_known_args()
+    if unknown:
+        parser.error("Unrecognized arguments: " + " ".join(unknown))
     args = apply_variant_configs(args)
 
     print(f"Current representation: {args.representation}")
@@ -158,7 +160,7 @@ if __name__ == "__main__":
     if args.is_training:
         for ii in range(args.itr):
             exp = Exp(args)
-            setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_df{}_{}_{}".format(
+            setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_{}_{}".format(
                 args.task_name,
                 args.model_id,
                 args.model,
@@ -167,7 +169,6 @@ if __name__ == "__main__":
                 args.seq_len,
                 args.pred_len,
                 args.d_model,
-                args.d_ff,
                 args.des,
                 ii,
             )
@@ -180,7 +181,7 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
     else:
         ii = 0
-        setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_df{}_{}_{}".format(
+        setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_{}_{}".format(
             args.task_name,
             args.model_id,
             args.model,
@@ -189,7 +190,6 @@ if __name__ == "__main__":
             args.seq_len,
             args.pred_len,
             args.d_model,
-            args.d_ff,
             args.des,
             ii,
         )

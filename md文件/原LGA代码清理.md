@@ -1,91 +1,372 @@
 ## 结论
 
-**还没有完全清理完毕。**
+当前版本的**模型主干已经基本符合预期**：
 
-旧的 LGA/Legacy **执行主干已经删除干净**：`AdaptiveResidualRouter`、`PatchResidualProjection`、`gate_type`、`gate_beta`、`gate_window_half`、`residual_mode` 都已经不在当前模型路径中，Encoder 现在只实例化 `GaussianJetProjection`。 
+* `gamma_complement` 已删除；
+* Legacy Router 和旧残差投影已删除；
+* `d_latent` 已从 Encoder 接口移除；
+* Gaussian Splatting 不再向 Encoder 返回无用的 `weights`；
+* `num_gaussians` 默认值已经统一为 8；
+* `PatchLinearRepresentation.forward()` 已兼容统一调用接口；
+* GS+CAS+Jet 前向、反向均能运行，最小测试中所有可训练参数都有梯度；
+* `patch_linear` 分支也已通过前向测试。   
 
-但外围接口、诊断字段和实验脚本仍有一批明确残留。另外，实际前向测试还发现了一个 `patch_linear` 分支错误。
+但**清理还没有彻底完成**，主要残留在实验诊断代码和运行参数中。
 
-## 仍需删除的明确残留
+---
 
-| 残留                       | 位置                    | 判断                    |
-| ------------------------ | --------------------- | --------------------- |
-| `gamma_complement` 参数和属性 | `cas_gating`          | 完全未读取，应删除             |
-| `route_router` property  | Encoder               | 旧测试兼容接口，始终返回 `None`   |
-| `last_raw_lga`           | Encoder               | 完全无数据，只反复赋值 `None`    |
-| `last_z_lga`             | Encoder               | 同上                    |
-| `last_energy`            | Encoder               | 同上                    |
-| `raw_lga_list`           | 实验脚本                  | 创建后从未写入或读取            |
-| `z_lga_list`             | 实验脚本                  | 同上                    |
-| `energy_list`            | 实验脚本                  | 同上                    |
-| `d_latent` 参数和属性         | Encoder               | 当前 Encoder 中从未使用      |
-| `weights` 返回值            | Gaussian → Encoder    | 旧 Router 曾需要，现在解包后未使用 |
-| `last_density_score`     | Gaussian、Encoder、实验脚本 | 永远是 `None`，相关逻辑不可达    |
+# 1. `d_ff` 是否无效？
 
-### 1. `gamma_complement` 仍然存在
+**是。对于当前 `SplatTS/gs_linear` 模型，`d_ff` 是无效的模型超参数。**
 
-`CASGating` 仍定义并保存：
+它只出现在两处：
 
 ```python
-def __init__(
+parser.add_argument("--d_ff", type=int, default=256)
+```
+
+以及实验名称：
+
+```python
+setting = "..._dm{}_df{}_...".format(
+    ...
+    args.d_model,
+    args.d_ff,
+    ...
+)
+```
+
+模型构造、Gaussian Generator、Jet、Head、优化器和损失函数中均没有读取 `d_ff`。
+
+我还做了实际对照测试：
+
+```text
+d_ff = 4
+d_ff = 64
+
+模型 state_dict 最大差异：0.0
+相同输入的输出最大差异：0.0
+```
+
+因此它的实际效果只有：
+
+> 改变 checkpoint 目录和实验名称中的 `_df256_` 字段。
+
+这会产生一个麻烦：两个计算完全相同的模型，仅仅因为 `d_ff` 不同，就被保存为两个不同实验。
+
+### 建议
+
+从 ETTh1 脚本中删除：
+
+```bash
+--d_ff 256
+```
+
+并从 `setting` 中删除：
+
+```python
+_df{}
+args.d_ff
+```
+
+如果 `run.py` 还要兼容其他真正使用 FFN 的模型，可以保留 parser 参数，但不要把它当作 SplatTS 的有效超参数。
+
+---
+
+# 2. ETTh1 脚本中的其他无效参数
+
+## 完全不影响当前模型计算
+
+| 参数        | 当前状态                        | 建议                       |
+| --------- | --------------------------- | ------------------------ |
+| `d_ff`    | 只影响实验名称                     | 从 SplatTS 脚本和 setting 删除 |
+| `dec_in`  | 没有被模型或实验读取                  | 从该脚本删除                   |
+| `c_out`   | 只赋给未使用的 `self.n_vars`       | 删除脚本参数和死属性               |
+| `dropout` | `head_dropout` 已单独存在，因此它不生效 | 从该脚本删除                   |
+
+---
+
+## 2.1 `dec_in` 完全无效
+
+当前模型不使用 Decoder，也不读取 `configs.dec_in`。模型 forward 虽然保留了 `x_dec`，但根本没有使用：
+
+```python
+def forward(
     self,
-    d_model,
-    num_gaussians,
-    patch_len=16,
-    stride=None,
-    gamma_complement=0.6,
-    k_base=-1,
+    x,
+    x_mark_enc=None,
+    x_dec=None,
+    x_mark_dec=None,
+    ...
+):
+```
+
+计算只依赖 `x`。
+
+实际测试中，把：
+
+```text
+dec_in = 1
+```
+
+改成：
+
+```text
+dec_in = 99
+```
+
+模型参数和输出均完全相同。
+
+因此 ETTh1 脚本中的：
+
+```bash
+--dec_in 7
+```
+
+可以删除。
+
+---
+
+## 2.2 `c_out` 当前也不影响输出通道数
+
+`c_out` 唯一进入模型的位置是：
+
+```python
+self.n_vars = configs.c_out
+```
+
+但 `self.n_vars` 后续没有被使用。实际输出通道数由输入的：
+
+```python
+B, T, C = x.shape
+```
+
+中的 `C` 决定：
+
+```python
+pred = pred.reshape(B, C, self.pred_len)
+```
+
+
+
+因此改变 `c_out`：
+
+* 不改变参数量；
+* 不改变 Head；
+* 不改变输出形状；
+* 不改变预测结果。
+
+实测 `c_out=1` 与 `c_out=99` 的输出差异也是 `0.0`。
+
+建议删除：
+
+```python
+self.n_vars = configs.c_out
+```
+
+ETTh1 脚本中的：
+
+```bash
+--c_out 7
+```
+
+也可以删除。若为了兼容其他模型保留 parser 参数，需要明确它对 SplatTS 无效。
+
+---
+
+## 2.3 `dropout` 对当前 SplatTS 无效
+
+当前模型写的是：
+
+```python
+head_dropout=getattr(
+    configs,
+    "head_dropout",
+    configs.dropout,
+)
+```
+
+但 `run.py` 永远都会创建 `args.head_dropout`：
+
+```python
+parser.add_argument(
+    "--head_dropout",
+    type=float,
+    default=0.1,
+)
+```
+
+所以 `configs.dropout` 永远不会成为实际的 Head dropout。Gaussian Generator 使用的是独立的 `gs_dropout`。 
+
+ETTh1 脚本又明确设置了：
+
+```bash
+--dropout 0.0
+--head_dropout 0.9
+```
+
+实际生效的只有：
+
+```bash
+--head_dropout 0.9
+```
+
+我将 `dropout` 从 `0.0` 改成 `0.9`，固定 `head_dropout` 后，模型参数和输出仍完全相同。
+
+因此可以删除：
+
+```bash
+--dropout 0.0
+```
+
+如果希望保留全局 dropout 的回退逻辑，应把 `head_dropout` 默认值改成 `None`，否则当前的回退永远不可达。
+
+---
+
+# 3. 两个“参数有效，但当前写法无效果”的项目
+
+## 3.1 `--use_residual` 在脚本中是多余的
+
+当前 parser 定义为：
+
+```python
+parser.add_argument(
+    "--use_residual",
+    action="store_true",
+    default=True,
+)
+```
+
+这意味着：
+
+* 不写 `--use_residual`：值是 `True`；
+* 写了 `--use_residual`：值还是 `True`。
+
+所以 ETTh1 脚本中的：
+
+```bash
+--use_residual
+```
+
+不会改变任何东西。
+
+更严重的是，目前命令行没有正常关闭 Residual 的方式。
+
+建议使用：
+
+```python
+parser.add_argument(
+    "--use_residual",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+)
+```
+
+这样可以使用：
+
+```bash
+--use_residual
+--no-use_residual
+```
+
+如果项目希望默认关闭，则改为：
+
+```python
+parser.add_argument(
+    "--use_residual",
+    action="store_true",
+    default=False,
+)
+```
+
+当前 ETTh1 脚本可以暂时删除 `--use_residual`，因为默认已经开启。
+
+---
+
+## 3.2 `gs_lambda=0.0` 会完全关闭容量正则项
+
+CAS 训练损失中确实使用了：
+
+```python
+loss = loss + (
+    self.args.gs_lambda * warmup_factor
+) * loss_capacity
+```
+
+所以 `gs_lambda` 本身不是无效参数。
+
+但 ETTh1 脚本设置：
+
+```bash
+--gs_lambda 0.0
+```
+
+意味着整个容量惩罚严格为零。
+
+需要区分：
+
+* CAS gating 仍然参与前向和预测损失训练；
+* 只是额外的 CAS capacity regularization 被关闭。
+
+而 `run.py` 的默认值本身也是 `0.0`，所以脚本显式写这一行是冗余的。
+
+如果实验本来就要关闭正则，可以删除该行；如果本来希望使用 CAS 容量控制，那么当前脚本并没有启用它。
+
+---
+
+# 4. 当前代码仍残留的死代码
+
+## 4.1 `last_density_score` 还没有完全清理
+
+`TemporalGaussianSplatting` 仍保留：
+
+```python
+last_density_score = None
+```
+
+但它既没有被更新，也没有被返回。
+
+这一行是纯死代码，可以直接删除。
+
+实验脚本中则仍然存在：
+
+```python
+egc_list = []
+density_sig_list = []
+```
+
+以及：
+
+```python
+if (
+    splatting_module is not None
+    and getattr(
+        splatting_module,
+        "last_density_score",
+        None,
+    ) is not None
 ):
     ...
-    self.gamma_complement = gamma_complement
 ```
 
-但 forward 中完全没有使用。Encoder 也已经不再传入它，所以这是纯粹的旧代码残留。
+但当前 Encoder 已经没有 `last_density_score` 属性，所以这个分支永远不会进入。后面的 Gaussian Density 诊断块也永远不会生成。 
 
-应改为：
+应删除整组：
 
-```python
-def __init__(
-    self,
-    d_model,
-    num_gaussians,
-    patch_len=16,
-    stride=None,
-    k_base=-1,
-):
+```text
+egc_list
+density_sig_list
+last_density_score 检查
+Mechanistic Metric (Gaussian Density) 日志块
 ```
 
-同时删除：
+CAS 自己的 `p_i / pi_i / sigma` 诊断可以继续保留。
 
-```python
-self.gamma_complement = gamma_complement
-```
+---
 
-### 2. Encoder 中仍保留 LGA 诊断遗迹
+## 4.2 LGA 空列表仍然存在
 
-以下字段已经不可能产生有效数据：
-
-```python
-self.last_raw_lga = None
-self.last_z_lga = None
-self.last_energy = None
-```
-
-forward 的两个分支中又反复将它们设为 `None`。这些赋值没有任何作用，应全部删除。
-
-下面的 property 也属于旧测试兼容残留：
-
-```python
-@property
-def route_router(self):
-    return None
-```
-
-除非现有测试仍强制访问 `route_router`，否则也应该删除。
-
-### 3. 实验脚本仍有 LGA 空列表
-
-测试函数中仍然创建：
+实验脚本仍然初始化：
 
 ```python
 raw_lga_list = []
@@ -93,113 +374,15 @@ z_lga_list = []
 energy_list = []
 ```
 
-但后续没有向它们写入数据，也没有读取，直接删除即可。
+但之后完全没有使用。
+
+这三行应删除。说明上一轮的 LGA 实验端残留还没有真正清掉。
 
 ---
 
-## `density_mode="sparse"` 已经成为不可达代码
+## 4.3 日志仍然使用旧 Router 术语
 
-这是目前最大的一组死代码。
-
-`TemporalGaussianSplatting` 中：
-
-```python
-last_density_score = None
-...
-return rendered_event, weights, mu, sigma, alpha_effective, last_density_score
-```
-
-无论输入和配置是什么，`last_density_score` 都恒为 `None`。
-
-Encoder 只是接收并继续保存：
-
-```python
-self.last_density_score = last_density_score
-```
-
-所以它仍然恒为 `None`。
-
-因此实验脚本中的以下训练逻辑永远不会执行实际惩罚：
-
-```python
-if density_mode == "sparse":
-    if splatting_module.last_density_score is not None:
-        ...
-```
-
-测试阶段基于 `last_density_score` 计算 EGC 的代码也永远不会执行。
-
-如果当前项目只支持：
-
-```text
-density_mode = none
-density_mode = cas
-```
-
-建议一次性删除：
-
-* Gaussian 中的 `last_density_score`
-* Encoder 中的 `self.last_density_score`
-* Gaussian 返回值中的 `last_density_score`
-* 实验脚本中的 `"sparse"` 损失分支
-* 测试阶段基于 `last_density_score` 的 EGC 统计
-* `egc_list` 和 `density_sig_list` 相关通用诊断
-
-CAS 已经拥有独立的 `p_i`、`pi_i`、`gate_hard` 和 `last_active_count`，无需依赖这套失效的 sparse 接口。
-
----
-
-## `weights` 也是旧 Router 留下的返回接口
-
-Gaussian Splatting 内部当然仍需要 `weights` 完成渲染，但现在 Encoder 接收它之后没有任何使用：
-
-```python
-rendered_event, weights, mu, sigma, alpha_effective, last_density_score = ...
-```
-
-过去 `weights` 会传给 LGA Router；Router 删除后，这个跨模块返回值已经多余。 
-
-可以把接口收缩为：
-
-```python
-return rendered_event, mu, sigma, alpha_effective
-```
-
-Encoder 对应改成：
-
-```python
-rendered_event, mu, sigma, alpha_effective = self.gaussian_splatting(
-    x_flat,
-    patch_num,
-    x_seq.device,
-    gate_effective,
-)
-```
-
-注意只是停止**返回** `weights`，Gaussian Splatting 内部计算渲染时仍然要保留它。
-
----
-
-## Jet 诊断仍在使用旧的“Gate/Route”话语
-
-下面这些字段不是死代码，因为实验脚本仍在使用：
-
-```python
-last_gate_direction
-last_gate_strength
-last_gate_scale
-last_gate_route_probs
-```
-
-但它们已经不再来自一个 gating router，而是由：
-
-* Gaussian score shift；
-* density confidence；
-* shift 正负方向；
-
-人工转换出来的诊断量。
-
-实验日志仍写成：
+测试日志仍然写：
 
 ```text
 Adaptive Gating Direction Diagnostics
@@ -208,107 +391,102 @@ Effective Gating
 Current Strategy
 ```
 
-这容易让代码、实验日志和论文叙事产生错位。
+但当前这些数值实际来自 Gaussian score shift 和 density confidence，而不是 Adaptive Direction Router。 
 
-建议改名，例如：
+建议改成：
 
 ```text
 Gaussian Score-Shift Diagnostics
-Directional Confidence Decomposition
+Directional Confidence Components
 Effective Score Shift
 Shift Pattern
 ```
 
-字段也可以逐步改为：
+`last_gate_direction` 等属性如果暂时为了兼容测试可以保留，但论文版代码最好改成：
 
-```python
+```text
 last_shift_direction
 last_shift_confidence
 last_directional_components
 ```
 
-严格来说，这部分是**语义残留**，不是不可达代码。如果暂时需要兼容旧日志，可以保留；但不能称为完全清理。
+---
+
+# 5. ETTh1 脚本的命名仍然是旧项目语义
+
+当前脚本仍有：
+
+```text
+Adaptive Direction Router
+etth1_router_96
+Ablation_ETTh1_router
+```
+
+
+
+现在项目已经是 Gaussian Jet，这些命名会让：
+
+* checkpoint 名称；
+* 日志文件；
+* 实验表；
+* 论文复现实验；
+
+继续显示成 Router。
+
+建议统一改成：
+
+```bash
+--model_id etth1_jet_96
+--des ETTh1_GaussianJet
+```
+
+脚本注释改为：
+
+```bash
+# ETTh1 Gaussian Jet + CAS configuration
+```
+
+这不是数值计算错误，但属于应清理的语义残留。
 
 ---
 
-## 另外发现两个实际问题
+# 6. `k_base` 仍会在不需要时计算
 
-### 1. `patch_linear` 分支目前无法运行
-
-主模型统一调用：
+当前 `gs_linear` 只要：
 
 ```python
-enc_out = self.representation(
-    x_repr_in,
-    self.num_patches_srs,
-)
+k_base == -1
 ```
 
-但 `PatchLinearRepresentation.forward` 只接收：
+就根据数据集计算 `k_base`，无论：
 
-```python
-def forward(self, x_seq):
-```
+* `representation` 是否为 `gs`；
+* `density_mode` 是否为 `cas`。
 
- 
 
-实际前向测试结果是：
+
+对于当前 ETTh1 脚本，因为确实使用：
 
 ```text
-TypeError:
-PatchLinearRepresentation.forward() takes 2 positional arguments
-but 3 were given
+representation = gs
+density_mode = cas
 ```
 
-建议让两个 representation 的接口统一。最小修改是：
+所以结果符合预期。
+
+但更完整的写法应为：
 
 ```python
-class PatchLinearRepresentation(nn.Module):
-    ...
-
-    def forward(self, x_seq, patch_num=None):
-        B, C, L = x_seq.shape
-        ...
-```
-
-这里 `patch_num` 可以忽略，因为该模块已经自行计算 `self.patch_num`。
-
-另一种方式是在主模型中显式分支，但统一接口更干净。
-
-### 2. `num_gaussians` 默认值不一致
-
-自动计算 `k_base` 时使用：
-
-```python
-num_gaussians = getattr(configs, "num_gaussians", 8)
-```
-
-实际创建 Encoder 时却使用：
-
-```python
-num_gaussians = getattr(configs, "num_gaussians", 5)
-```
-
-
-
-当配置没有显式给出 `num_gaussians` 时，会出现：
-
-* 按 8 个 Gaussian 计算 `k_base`；
-* 实际只创建 5 个 Gaussian。
-
-应当在前面只解析一次：
-
-```python
-num_gaussians = getattr(configs, "num_gaussians", 5)
-```
-
-后面全部使用该局部变量。
-
-同时，`k_base` 的自动计算最好只在真正需要 CAS 时运行：
-
-```python
-density_mode = getattr(configs, "density_mode", "none")
-num_gaussians = getattr(configs, "num_gaussians", 5)
+density_mode = getattr(
+    configs,
+    "density_mode",
+    "none",
+)
+num_gaussians = getattr(
+    configs,
+    "num_gaussians",
+    8,
+)
 
 if (
     self.representation_name == "gs"
@@ -318,53 +496,96 @@ if (
     ...
 ```
 
-否则在 `patch_linear` 或 `density_mode="none"` 下计算并打印 `k_base` 都没有意义。
+否则运行 `patch_linear` baseline 时，也会无意义地打印 CAS 的 `k_base` 信息。
 
 ---
 
-## 其他低优先级死字段
+# 7. `run.py` 会静默吞掉拼错的参数
 
-以下字段在上传代码中也没有实际读取：
+当前使用：
 
 ```python
-# SplattingResidualEncoder
-d_latent
-self.d_latent
-
-# Model
-self.task_name
-self.n_vars
-
-# FlattenHead
-self.n_vars
+args, unknown = parser.parse_known_args()
 ```
 
-其中 `task_name` 和 forward 的扩展参数可能是上层预测框架的统一接口，可以为了框架兼容保留；但 `Encoder.d_latent` 基本可以确定删除，因为底层 Gaussian 模块直接使用 `d_model` 作为 latent 维度。   
+但没有检查 `unknown`。
 
-## 最终判断
+这意味着类似：
 
-当前状态可以描述为：
+```bash
+--gate_bate 0.5
+--jet_density_tua 1.0
+```
 
-> **旧 LGA 的模型计算路径已经清理完成，但旧接口、旧诊断字段和旧实验逻辑尚未完全清理。**
+不会报错，而是被悄悄忽略。这正是此前残留参数问题很难发现的原因之一。
 
-至少还应处理这几组，才能称为真正清理完毕：
+如果不需要接受外部未知参数，直接改为：
+
+```python
+args = parser.parse_args()
+```
+
+如果必须使用 `parse_known_args()`，至少加上：
+
+```python
+args, unknown = parser.parse_known_args()
+
+if unknown:
+    parser.error(
+        "Unrecognized arguments: "
+        + " ".join(unknown)
+    )
+```
+
+这是非常建议修复的一项。
+
+---
+
+# 8. 哪些“看起来没直接引用”的参数不要删除
+
+以下参数虽然在当前几个模型文件里不一定直接出现，但会通过外部模块使用，不应仅凭 grep 删除：
 
 ```text
-gamma_complement
-route_router
-last_raw_lga / last_z_lga / last_energy
-raw_lga_list / z_lga_list / energy_list
-d_latent（Encoder 层）
-weights 跨模块返回值
-last_density_score 及整个 sparse 分支
-旧 Gate/Route 诊断命名
+root_path
+data_path
+batch_size
+num_workers
+lradj
+checkpoints
 ```
 
-此外必须修复：
+`Exp_Long_Term_Forecast` 会把完整的 `args` 交给 `data_provider`，并把它交给 `adjust_learning_rate`；这些参数通常由数据加载器和学习率工具读取。
 
-```text
-patch_linear forward 参数不匹配
-num_gaussians 默认值 8/5 不一致
+---
+
+# 推荐的 ETTh1 脚本精简结果
+
+从当前脚本中可以安全删除：
+
+```bash
+--dec_in 7
+--c_out 7
+--d_ff 256
+--dropout 0.0
+--use_residual
+--gs_lambda 0.0
 ```
 
-语法检查全部通过；`gs + none`、`gs + cas`、启用或关闭 Jet 残差的前向和反向均可运行。当前唯一直接触发运行错误的是 `patch_linear` 分支。
+其中前四个对当前模型计算无影响；后两个分别是“默认已开启”和“默认已为零”。
+
+为了论文复现，反而建议显式补上真正有效的 Jet 参数：
+
+```bash
+--num_implicit_gaussians 4
+--jet_max_shift_samples 1.0
+--jet_score_temperature 1.0
+--jet_density_tau 1.0
+--jet_detach_geometry 1
+--jet_scale_init 0.1
+--jet_sigma_init 0.2
+--k_base -1
+```
+
+这些参数当前虽然没有写进 ETTh1 脚本，但默认值确实会影响 Jet 结构或计算。  
+
+**最终判断：模型核心修复已经正确，但实验端的 `last_density_score`、LGA 空列表和旧 Router 日志尚未清理；`d_ff`、`dec_in`、`c_out`、`dropout` 对当前 SplatTS 都是无效参数。**

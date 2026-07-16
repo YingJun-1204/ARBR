@@ -30,7 +30,6 @@ class TemporalGaussianSplatting(nn.Module):
         sigma = F.softplus(raw_params[:, :, 1]) + 1e-5
         alpha = torch.sigmoid(raw_params[:, :, 2])
         c = raw_params[:, :, 3:]
-        last_density_score = None
         
         if self.density_mode == "cas" and gate_effective is not None:
             alpha_effective = alpha * gate_effective
