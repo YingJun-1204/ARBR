@@ -502,7 +502,7 @@ def main():
     parser.add_argument("--gate_type", type=str, required=True, choices=["none", "forward", "reverse", "adaptive_direction"], help="Residual gating direction")
     parser.add_argument("--gate_beta", type=float, default=0.25, help="Scale gate beta bounds")
     parser.add_argument("--pred_len", type=int, nargs="+", default=[96], help="Prediction horizons (default: [96])")
-    parser.add_argument("--batch_size", type=int, default=256, choices=[128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
+    parser.add_argument("--batch_size", type=int, default=256, choices=[16, 32, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for best json configs")
     parser.add_argument("--position", type=str, default="pre", choices=POSITIONS, help="Head dropout position")
     parser.add_argument("--density_mode", type=str, default="cas", choices=DENSITY_MODES, help="Density mode selection")

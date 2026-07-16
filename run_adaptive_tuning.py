@@ -43,12 +43,12 @@ def main():
     parser.add_argument(
         "--datasets",
         nargs="+",
-        default=["etth1", "etth2", "ettm1", "ettm2", "weather", "electricity"],
-        help="List of datasets to tune (choices: etth1, etth2, ettm1, ettm2, weather, electricity)"
+        default=["etth1", "etth2", "ettm1", "ettm2", "weather", "electricity", "exchange"],
+        help="List of datasets to tune (choices: etth1, etth2, ettm1, ettm2, weather, electricity, exchange)"
     )
     parser.add_argument("--use_seed", action="store_true", help="Use previous best parameters as HPO seeds")
     parser.add_argument("--gate_type", type=str, default="adaptive_direction", choices=["none", "forward", "reverse", "adaptive_direction"], help="Gating type selection (default: adaptive_direction)")
-    parser.add_argument("--batch_size", type=int, default=256, choices=[16, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
+    parser.add_argument("--batch_size", type=int, default=256, choices=[16, 32, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     
@@ -63,13 +63,14 @@ def main():
         ("ETTm2", "tune_gate_ettm2.py", args.gate_type),
         ("weather", "tune_gate_weather.py", args.gate_type),
         ("electricity", "tune_gate_electricity.py", args.gate_type),
+        ("exchange", "tune_gate_exchange.py", args.gate_type),
     ]
 
     selected = [d.lower() for d in args.datasets]
     tasks = [t for t in tasks_all if t[0].lower() in selected]
 
     if not tasks:
-        print(f"Error: No valid datasets selected from {args.datasets}. Choices: etth1, etth2, ettm1, ettm2, weather, electricity")
+        print(f"Error: No valid datasets selected from {args.datasets}. Choices: etth1, etth2, ettm1, ettm2, weather, electricity, exchange")
         sys.exit(1)
 
     total_tasks = len(tasks) * len(args.pred_len)
@@ -79,7 +80,7 @@ def main():
             log_message(f"STEP {step_num}/{total_tasks}: Starting {gate_type.upper()} HPO Gating for {dataset} with pred_len={p_len}")
             
             task_batch_size = args.batch_size
-            if dataset.lower() == "electricity" and args.batch_size == 512:
+            if dataset.lower() in ["electricity", "exchange"] and args.batch_size == 512:
                 task_batch_size = 16
 
             cmd = [

@@ -7,10 +7,10 @@ import sys
 
 import optuna
 
-# Basic dataset configuration for electricity
+# Basic dataset configuration for exchange
 DATASET_CONFIGS = {
-    "electricity": {
-        "data_path": "electricity.csv",
+    "exchange": {
+        "data_path": "Exchange.csv",
         "seq_len": 512,
         "batch_size": 16,
         "patience": 6,
@@ -60,13 +60,13 @@ def get_output_json_path(output_dir, gate_type, pred_len=96, density_mode=None):
     os.makedirs(output_dir, exist_ok=True)
     suffix = f"_{density_mode}" if density_mode in ["cas"] else ""
     if gate_type == "adaptive_direction":
-        return os.path.join(output_dir, f"best_electricity_router_{pred_len}{suffix}.json")
+        return os.path.join(output_dir, f"best_exchange_router_{pred_len}{suffix}.json")
     gate_str = gate_type if gate_type is not None else "none"
-    return os.path.join(output_dir, f"best_nooc_linear_electricity_{gate_str}_{pred_len}{suffix}.json")
+    return os.path.join(output_dir, f"best_nooc_linear_exchange_{gate_str}_{pred_len}{suffix}.json")
 
 
 def get_storage_name(gate_type, pred_len=96, output_dir=None):
-    db_name = f"best_electricity_router_{pred_len}.db" if gate_type == "adaptive_direction" else f"best_electricity_{gate_type if gate_type is not None else 'none'}_{pred_len}.db"
+    db_name = f"best_exchange_router_{pred_len}.db" if gate_type == "adaptive_direction" else f"best_exchange_{gate_type if gate_type is not None else 'none'}_{pred_len}.db"
     if output_dir:
         return f"sqlite:///{os.path.join(output_dir, db_name)}"
     return f"sqlite:///{db_name}"
@@ -74,9 +74,9 @@ def get_storage_name(gate_type, pred_len=96, output_dir=None):
 
 def get_study_name(gate_type, pred_len=96):
     if gate_type == "adaptive_direction":
-        return f"best_electricity_router_{pred_len}_v1"
+        return f"best_exchange_router_{pred_len}_v1"
     gate_str = gate_type if gate_type is not None else "none"
-    return f"best_nooc_linear_electricity_{gate_str}_{pred_len}_v1"
+    return f"best_nooc_linear_exchange_{gate_str}_{pred_len}_v1"
 
 
 def make_bounds():
@@ -150,10 +150,10 @@ def sample_params(trial, bounds, position, gate_type=None, batch_size=16):
 
 
 def build_command(position, params, trial_number, density_mode="cas", pred_len=96, gate_type=None, gate_beta=0.25, output_dir="loss_cas_simplify"):
-    cfg = DATASET_CONFIGS["electricity"]
+    cfg = DATASET_CONFIGS["exchange"]
     head_dropout = 0.0 if position == "none" else params["head_dropout"]
     gate_str = "router" if gate_type == "adaptive_direction" else (gate_type if gate_type is not None else "none")
-    model_id = f"tune_linear_electricity_gate_{gate_str}_trial_{trial_number}"
+    model_id = f"tune_linear_exchange_gate_{gate_str}_trial_{trial_number}"
     batch_size = params["batch_size"]
 
     cmd = [
@@ -181,11 +181,11 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
         "--pred_len",
         str(pred_len),
         "--enc_in",
-        "321",
+        "8",
         "--dec_in",
-        "321",
+        "8",
         "--c_out",
-        "321",
+        "8",
         "--d_model",
         "128",
         "--d_ff",
@@ -235,7 +235,7 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
         "--gate_beta",
         str(gate_beta),
         "--des",
-        f"Ablation_electricity_{gate_str}",
+        f"Ablation_exchange_{gate_str}",
     ]
     if gate_type == "adaptive_direction":
         cmd.extend(["--gate_lambda", str(params.get("gate_lambda", 0.0))])
@@ -342,7 +342,7 @@ def save_best_callback(position, output_dir, gate_type, density_mode, pred_len, 
     def callback(study, trial):
         # 1. Manage diagnostics files (runs for every trial)
         gate_str = "router" if gate_type == "adaptive_direction" else (gate_type if gate_type is not None else "none")
-        dataset_lower = "electricity"
+        dataset_lower = "exchange"
         trial_diag_name = f"diagnostics_tune_linear_{dataset_lower}_gate_{gate_str}_trial_{trial.number}.txt"
         trial_diag_path = os.path.join(output_dir, trial_diag_name)
         
@@ -403,28 +403,9 @@ def save_best_callback(position, output_dir, gate_type, density_mode, pred_len, 
                     )
             except Exception as exc:
                 print(f"\n[Optuna Callback] Read existing {json_path} failed ({exc}), overwriting.")
-        # 2. Save best config (runs only if this is the best trial so far)
-        if study.best_trial.number != trial.number:
-            return
-
-        json_path = get_output_json_path(output_dir, gate_type, pred_len, density_mode)
-        current_mse = study.best_value
-        should_write = True
-        if os.path.exists(json_path):
-            try:
-                with open(json_path, "r", encoding="utf-8") as f:
-                    existing = json.load(f)
-                if float(existing.get("mse", float("inf"))) <= current_mse:
-                    should_write = False
-                    print(
-                        f"\n[Optuna Callback] Skip saving {json_path}: "
-                        f"existing MSE {existing['mse']:.6f} <= new MSE {current_mse:.6f}"
-                    )
-            except Exception as exc:
-                print(f"\n[Optuna Callback] Read existing {json_path} failed ({exc}), overwriting.")
         if should_write:
             best_tuned = {}
-            best_tuned["dataset"] = "electricity"
+            best_tuned["dataset"] = "exchange"
             best_tuned["gate_type"] = gate_type if gate_type is not None else "none"
             best_tuned["mse"] = current_mse
             best_tuned["mae"] = study.best_trial.user_attrs.get("mae", -1.0)
@@ -453,7 +434,7 @@ def save_best_callback(position, output_dir, gate_type, density_mode, pred_len, 
 
 
 def load_seed_params(position, experiment_tag="simplify", pred_len=96, gate_type=None, batch_size=16):
-    seed_path = os.path.join("tune_seed", f"best_electricity_router_{pred_len}_cas.json")
+    seed_path = os.path.join("tune_seed", f"best_exchange_router_{pred_len}_cas.json")
     if not os.path.exists(seed_path):
         print(f"[Seed Warning] Seed file not found at {seed_path}. Falling back to random search.")
         return None, None
@@ -494,11 +475,11 @@ def enqueue_seed(study, seed_trial, seed_path, position):
     if not seed_trial:
         return
     study.enqueue_trial(seed_trial)
-    print(f"[Seed] Enqueued {seed_path} for electricity/{position}")
+    print(f"[Seed] Enqueued {seed_path} for exchange/{position}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ablation HPO script for electricity gating choices.")
+    parser = argparse.ArgumentParser(description="Ablation HPO script for exchange gating choices.")
     parser.add_argument("--gate_type", type=str, required=True, choices=["none", "forward", "reverse", "adaptive_direction"], help="Residual gating direction")
     parser.add_argument("--gate_beta", type=float, default=0.25, help="Scale gate beta bounds")
     parser.add_argument("--pred_len", type=int, nargs="+", default=[96], help="Prediction horizons (default: [96])")
@@ -525,7 +506,7 @@ def main():
     gate_val = None if args.gate_type == "none" else args.gate_type
     
     for p_len in args.pred_len:
-        print(f"\n=== [MODE: HPO {args.gate_type.upper()}] Starting tuning for electricity | pred_len={p_len} ===")
+        print(f"\n=== [MODE: HPO {args.gate_type.upper()}] Starting tuning for exchange | pred_len={p_len} ===")
         bounds = make_bounds()
         if args.num_gaussians is not None:
             bounds["num_gaussians_lower"] = args.num_gaussians
