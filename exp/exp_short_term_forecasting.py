@@ -69,7 +69,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
         )
 
         model_optim = self._select_optimizer()
-        criterion = self._select_criterion(self.args.loss)
+        criterion = self._select_criterion(getattr(self.args, "loss", "MSE"))
         mse = nn.MSELoss()
 
         # 确保 warmup 从第 1 个 epoch 生效
@@ -93,7 +93,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
                 dec_inp = torch.zeros_like(batch_y[:, -self.args.pred_len:, :]).float()
                 dec_inp = torch.cat([batch_y[:, :self.args.label_len, :], dec_inp], dim=1).float().to(self.device)
 
-                outputs = self.model(batch_x, None, dec_inp, None)
+                outputs = self.model(batch_x)
 
                 f_dim = -1 if self.args.features == 'MS' else 0
                 outputs = outputs[:, -self.args.pred_len:, f_dim:]
@@ -157,9 +157,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             id_list = np.arange(0, B, 500)  # validation set size
             id_list = np.append(id_list, B)
             for i in range(len(id_list) - 1):
-                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(x[id_list[i]:id_list[i + 1]], None,
-                                                                      dec_inp[id_list[i]:id_list[i + 1]],
-                                                                      None).detach().cpu()
+                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(x[id_list[i]:id_list[i + 1]]).detach().cpu()
             f_dim = -1 if self.args.features == 'MS' else 0
             outputs = outputs[:, -self.args.pred_len:, f_dim:]
             pred = outputs
@@ -197,8 +195,7 @@ class Exp_Short_Term_Forecast(Exp_Basic):
             id_list = np.arange(0, B, 1)
             id_list = np.append(id_list, B)
             for i in range(len(id_list) - 1):
-                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(x[id_list[i]:id_list[i + 1]], None,
-                                                                      dec_inp[id_list[i]:id_list[i + 1]], None)
+                outputs[id_list[i]:id_list[i + 1], :, :] = self.model(x[id_list[i]:id_list[i + 1]])
 
                 if id_list[i] % 1000 == 0:
                     print(id_list[i])

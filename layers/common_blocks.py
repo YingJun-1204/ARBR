@@ -4,7 +4,6 @@ import torch.nn as nn
 class FlattenHead(nn.Module):
     def __init__(
         self,
-        n_vars,
         nf,
         target_window,
         head_dropout=0,
@@ -14,7 +13,6 @@ class FlattenHead(nn.Module):
         super().__init__()
         if head_dropout_position not in {"none", "pre", "post"}:
             raise ValueError(f"Unsupported head_dropout_position: {head_dropout_position}")
-        self.n_vars = n_vars
         self.head_dropout_position = head_dropout_position
         self.flatten = nn.Flatten(start_dim=-2)
         if mode == "linear":

@@ -15,6 +15,10 @@ class Exp_Basic(object):
         # 这里会触发子类 Exp_Main 的 _build_model()
         self.model = self._build_model().to(self.device)
 
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        print(f"[Model Parameter Count] Total Parameters: {total_params:,} | Trainable Parameters: {trainable_params:,}")
+
     def _build_model(self):
         raise NotImplementedError
         return None

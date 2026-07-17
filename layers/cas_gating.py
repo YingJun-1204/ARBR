@@ -20,7 +20,7 @@ class CASGating(nn.Module):
             nn.Linear(32, num_gaussians)
         )
 
-    def forward(self, x_flat, x_seq):
+    def forward(self, x_flat):
         batch_channel = x_flat.shape[0]
         
         # ALCR physical prior: smooth low frequency
@@ -42,7 +42,7 @@ class CASGating(nn.Module):
             self.k_base.fill_(k_val)
             print(f"[Dataset-Specific Spectral Anchor] rho_mean: {rho_mean:.4f} -> Locked k_base to: {k_val}")
         
-        p_prior = torch.full((batch_channel, self.num_gaussians), 0.01, device=x_seq.device)
+        p_prior = torch.full((batch_channel, self.num_gaussians), 0.01, device=x_flat.device)
         p_prior[:, :self.k_base.item()] = 1.0
         
         # Second-order difference for curvature
@@ -62,4 +62,4 @@ class CASGating(nn.Module):
         gate_hard = (pi_i > self.tau).float()
         gate_effective = pi_i + (gate_hard - pi_i).detach()
         
-        return gate_effective, pi_i, gate_hard, p_i
+        return gate_effective, pi_i

@@ -6,8 +6,6 @@ from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
 from utils.augmentation import run_augmentation_single
 
-# [优化] 移除了警告压制，因为触发警告的弃用代码已被清理
-
 class Dataset_ETT_hour(Dataset):
     def __init__(self, args, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',

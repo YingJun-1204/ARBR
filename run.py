@@ -50,18 +50,10 @@ if __name__ == "__main__":
     parser.add_argument("--pred_len", type=int, default=96)
     parser.add_argument("--inverse", action="store_true", default=False)
 
-    # imputation and anomaly arguments kept for experiment compatibility
-    parser.add_argument("--mask_rate", type=float, default=0.25)
-    parser.add_argument("--anomaly_ratio", type=float, default=0.25)
-
     # model define
     parser.add_argument("--enc_in", type=int, default=7)
-    parser.add_argument("--dec_in", type=int, default=7)
-    parser.add_argument("--c_out", type=int, default=7)
     parser.add_argument("--d_model", type=int, default=128)
-    parser.add_argument("--d_ff", type=int, default=256)
 
-    parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--activation", type=str, default="gelu")
     parser.add_argument("--output_attention", action="store_true")
 
@@ -79,20 +71,59 @@ if __name__ == "__main__":
     parser.add_argument("--num_gaussians", type=int, default=8)
     parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"])
     parser.add_argument("--gs_lambda", type=float, default=0.0)
-    parser.add_argument("--use_occlusion", action="store_true", default=False)
-    parser.add_argument("--use_residual", action="store_true", default=True, help="Enable Patch linear residual shortcut")
+    parser.add_argument("--use_occlusion", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--use_residual", action=argparse.BooleanOptionalAction, default=True, help="Use residual connection")
     parser.add_argument("--gs_residual_weight", type=float, default=0.1, help="Gating weight multiplier for residual shortcut")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for configurations and diagnostics")
+    parser.add_argument("--ablation_mode", type=str, default="none", choices=["none", "gaussian_only", "linear_only", "wo_jet", "wo_guidance", "wo_adaptive_fusion"], help="Ablation mode for model components")
 
     # Gaussian Jet parameters
     parser.add_argument("--num_implicit_gaussians", type=int, default=4)
     parser.add_argument("--jet_max_shift_samples", type=float, default=1.0)
-    parser.add_argument("--jet_score_temperature", type=float, default=1.0)
+    parser.add_argument("--jet_score_temperature", type=float, default=0.01)
     parser.add_argument("--jet_density_tau", type=float, default=1.0)
     parser.add_argument("--jet_detach_geometry", type=int, default=1)
     parser.add_argument("--jet_scale_init", type=float, default=0.1)
     parser.add_argument("--jet_sigma_init", type=float, default=0.2)
+
+    # Geometry Fusion parameters
+    parser.add_argument(
+        "--fusion_mode",
+        type=str,
+        default="fixed",
+        choices=["fixed", "geometry"],
+    )
+    parser.add_argument(
+        "--fusion_hidden_dim",
+        type=int,
+        default=16,
+    )
+    parser.add_argument(
+        "--fusion_init",
+        type=float,
+        default=-1.0,
+        help=(
+            "Initial geometry-fusion weight. "
+            "A negative value inherits gs_residual_weight."
+        ),
+    )
+    parser.add_argument(
+        "--fusion_beta_max",
+        type=float,
+        default=0.5,
+    )
+    parser.add_argument(
+        "--fusion_detach_geometry",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "--diag",
+        action="store_true",
+        default=False,
+        help="Enable and print diagnostics during testing",
+    )
 
     # optimization
     parser.add_argument("--no_save_checkpoint", action="store_true", default=False, help="Cache weights in RAM and skip writing checkpoints to disk.")
@@ -103,7 +134,6 @@ if __name__ == "__main__":
     parser.add_argument("--patience", type=int, default=6)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--des", type=str, default="test")
-    parser.add_argument("--loss", type=str, default="MSE")
     parser.add_argument("--lradj", type=str, default="cosine", help="adjust learning rate strategy: [type1, type2, type3, type4, cosine, cosine_after_unfreeze, sigmoid]")
 
     # GPU
@@ -111,10 +141,6 @@ if __name__ == "__main__":
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--use_multi_gpu", action="store_true", default=False)
     parser.add_argument("--devices", type=str, default="0,1,2,3")
-
-    # de-stationary projector params
-    parser.add_argument("--p_hidden_dims", type=int, nargs="+", default=[128, 128])
-    parser.add_argument("--p_hidden_layers", type=int, default=2)
 
     # augmentation
     parser.add_argument("--augmentation_ratio", type=int, default=0)
@@ -160,17 +186,10 @@ if __name__ == "__main__":
     if args.is_training:
         for ii in range(args.itr):
             exp = Exp(args)
-            setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_{}_{}".format(
+            setting = "{}_{}_{}".format(
                 args.task_name,
                 args.model_id,
                 args.model,
-                args.data,
-                args.features,
-                args.seq_len,
-                args.pred_len,
-                args.d_model,
-                args.des,
-                ii,
             )
 
             print(">>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>".format(setting))
@@ -181,17 +200,10 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
     else:
         ii = 0
-        setting = "{}_{}_{}_{}_ft{}_sl{}_pl{}_dm{}_{}_{}".format(
+        setting = "{}_{}_{}".format(
             args.task_name,
             args.model_id,
             args.model,
-            args.data,
-            args.features,
-            args.seq_len,
-            args.pred_len,
-            args.d_model,
-            args.des,
-            ii,
         )
 
         exp = Exp(args)

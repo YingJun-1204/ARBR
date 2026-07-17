@@ -18,20 +18,17 @@ class GaussianJetProjection(nn.Module):
         sigma_init=0.20,
         learnable_mu=True,
         learnable_sigma=True,
+        ablation_mode="none",
     ):
         super().__init__()
+        self.ablation_mode = ablation_mode
         self.patch_len = patch_len
         self.stride = stride
         self.patch_num = math.ceil((seq_len - patch_len) / stride) + 1
         padding = patch_len + (self.patch_num - 1) * stride - seq_len
         self.padding_patch_layer = nn.ReplicationPad1d((0, padding))
-        self.d_model = d_model
-        
         # 1. 基础线性层，负责拟合高频尖峰与非周期细节
         self.base_projection = nn.Linear(patch_len, d_model, bias=False)
-        
-        # 2. Gaussian Jet 隐式高斯基底参数
-        self.num_implicit_gaussians = num_implicit_gaussians
         
         g_mu_tensor = torch.linspace(0, 1, num_implicit_gaussians)
         if learnable_mu:
@@ -51,15 +48,6 @@ class GaussianJetProjection(nn.Module):
         # sigmoid(adapter_logit) = jet_scale_init
         adapter_logit_val = math.log(jet_scale_init / (1.0 - jet_scale_init))
         self.adapter_logit = nn.Parameter(torch.tensor(adapter_logit_val))
-        
-        # 诊断属性（detach 后存储）
-        self.last_phi = None
-        self.last_psi = None
-        self.last_q0 = None
-        self.last_q1 = None
-        self.last_jet_norm = None
-        self.last_base_norm = None
-        self.last_adapter_scale = None
 
     def _extract_patches(self, x_seq):
         if len(x_seq.shape) == 2:
@@ -95,6 +83,9 @@ class GaussianJetProjection(nn.Module):
         patches = self._extract_patches(x_seq)
         base = self.base_projection(patches)
         
+        if self.ablation_mode == "wo_jet":
+            return base
+            
         phi, psi = self._build_gaussian_jet(patches.device, patches.dtype)
         
         q0 = torch.einsum("npl,kl->npk", patches, phi)
@@ -107,13 +98,5 @@ class GaussianJetProjection(nn.Module):
             confidence = 1.0
             
         scale = torch.sigmoid(self.adapter_logit)
-        
-        self.last_phi = phi.detach()
-        self.last_psi = psi.detach()
-        self.last_q0 = q0.detach()
-        self.last_q1 = q1.detach()
-        self.last_jet_norm = torch.norm(jet.detach(), p=2, dim=-1, keepdim=True)
-        self.last_base_norm = torch.norm(base.detach(), p=2, dim=-1, keepdim=True)
-        self.last_adapter_scale = scale.detach()
         
         return base + scale * confidence * jet

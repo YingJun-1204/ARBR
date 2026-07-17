@@ -6,10 +6,8 @@ import torch.nn as nn
 class PatchLinearRepresentation(nn.Module):
     def __init__(self, seq_len, patch_len, stride, d_model, dropout=0.0):
         super().__init__()
-        self.seq_len = seq_len
         self.patch_len = patch_len
         self.stride = stride
-        self.d_model = d_model
         self.patch_num = math.ceil((seq_len - patch_len) / stride) + 1
         padding = patch_len + (self.patch_num - 1) * stride - seq_len
 

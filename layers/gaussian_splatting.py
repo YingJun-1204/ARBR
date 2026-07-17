@@ -3,7 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class TemporalGaussianSplatting(nn.Module):
-    def __init__(self, seq_len, d_model, num_gaussians, gs_dropout=0.3, in_features=None, density_mode="none", use_occlusion=False):
+    def __init__(
+        self,
+        input_length,
+        d_model,
+        num_gaussians,
+        gs_dropout=0.3,
+        density_mode="none",
+        use_occlusion=False,
+    ):
         super().__init__()
         self.num_gaussians = num_gaussians
         self.d_model = d_model
@@ -11,17 +19,16 @@ class TemporalGaussianSplatting(nn.Module):
         self.density_mode = density_mode
         self.use_occlusion = use_occlusion
 
-        generator_in = in_features if in_features is not None else seq_len
         num_params_per_gaussian = 3 + self.d_latent
 
         self.generator = nn.Sequential(
-            nn.Linear(generator_in, 128),
+            nn.Linear(input_length, 128),
             nn.GELU(),
             nn.Dropout(gs_dropout),
             nn.Linear(128, num_gaussians * num_params_per_gaussian),
         )
 
-    def forward(self, x_flat, patch_num, x_seq_device, gate_effective=None):
+    def forward(self, x_flat, query_positions, gate_effective=None):
         batch_channel = x_flat.shape[0]
         raw_params = self.generator(x_flat)
 
@@ -36,8 +43,19 @@ class TemporalGaussianSplatting(nn.Module):
         else:
             alpha_effective = alpha
 
-        t_queries = torch.linspace(0, 1, patch_num, device=x_seq_device)
-        t_expanded = t_queries.unsqueeze(0).unsqueeze(2)
+        if query_positions.ndim != 1:
+            raise ValueError(
+                "query_positions must be a 1-D tensor, "
+                f"got shape {tuple(query_positions.shape)}"
+            )
+
+        t_queries = query_positions.to(
+            device=mu.device,
+            dtype=mu.dtype,
+        )
+
+        patch_num = t_queries.numel()
+        t_expanded = t_queries.view(1, patch_num, 1)
         d = t_expanded - mu.unsqueeze(1)
 
         if self.use_occlusion:
@@ -59,7 +77,7 @@ class TemporalGaussianSplatting(nn.Module):
             one_minus_weights = 1.0 - weights
             shifted_transmittance = torch.cat(
                 [
-                    torch.ones(batch_channel, patch_num, 1, device=x_seq_device),
+                    torch.ones(batch_channel, patch_num, 1, device=t_queries.device),
                     one_minus_weights[:, :, :-1],
                 ],
                 dim=2,

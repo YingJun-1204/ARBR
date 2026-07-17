@@ -2,6 +2,23 @@
 # 运行 ETTm1 数据集下的最优 Gaussian Jet 配置 (Horizon=96, 192, 336, 720, CAS Density Mode)
 # 请在项目根目录下执行：sh scripts/run_ettm1_cas.sh
 
+train_epochs=30
+next_is_epochs=false
+filtered_args=()
+
+for arg in "$@"; do
+  if [ "$next_is_epochs" = true ]; then
+    train_epochs="$arg"
+    next_is_epochs=false
+  elif [ "$arg" = "--train_epochs" ]; then
+    next_is_epochs=true
+  elif [[ "$arg" == --train_epochs=* ]]; then
+    train_epochs="${arg#*=}"
+  else
+    filtered_args+=("$arg")
+  fi
+done
+
 echo "==================== Starting ETTm1 Horizon 96 ===================="
 python -u run.py \
   --task_name long_term_forecast \
@@ -26,7 +43,7 @@ python -u run.py \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0001 \
   --lradj cosine \
-  --train_epochs 30 \
+  --train_epochs "$train_epochs" \
   --patience 6 \
   --head_dropout 0.35 \
   --head_dropout_position pre \
@@ -34,7 +51,7 @@ python -u run.py \
   --num_workers 0 \
   --gs_residual_weight 0.55 \
   --des ETTm1_GaussianJet \
-  "$@"
+  "${filtered_args[@]}"
 
 echo "==================== Starting ETTm1 Horizon 192 ===================="
 python -u run.py \
@@ -60,7 +77,7 @@ python -u run.py \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0005 \
   --lradj cosine \
-  --train_epochs 30 \
+  --train_epochs "$train_epochs" \
   --patience 6 \
   --head_dropout 0.55 \
   --head_dropout_position pre \
@@ -68,7 +85,7 @@ python -u run.py \
   --num_workers 0 \
   --gs_residual_weight 0.3 \
   --des ETTm1_GaussianJet \
-  "$@"
+  "${filtered_args[@]}"
 
 echo "==================== Starting ETTm1 Horizon 336 ===================="
 python -u run.py \
@@ -94,7 +111,7 @@ python -u run.py \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0001 \
   --lradj cosine \
-  --train_epochs 30 \
+  --train_epochs "$train_epochs" \
   --patience 6 \
   --head_dropout 0.5 \
   --head_dropout_position pre \
@@ -102,7 +119,7 @@ python -u run.py \
   --num_workers 0 \
   --gs_residual_weight 0.35 \
   --des ETTm1_GaussianJet \
-  "$@"
+  "${filtered_args[@]}"
 
 echo "==================== Starting ETTm1 Horizon 720 ===================="
 python -u run.py \
@@ -128,7 +145,7 @@ python -u run.py \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0003 \
   --lradj cosine \
-  --train_epochs 30 \
+  --train_epochs "$train_epochs" \
   --patience 6 \
   --head_dropout 0.8 \
   --head_dropout_position pre \
@@ -136,4 +153,4 @@ python -u run.py \
   --num_workers 0 \
   --gs_residual_weight 0.45 \
   --des ETTm1_GaussianJet \
-  "$@"
+  "${filtered_args[@]}"
