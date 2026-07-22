@@ -145,7 +145,7 @@ def sample_params(trial, bounds, position, batch_size=256):
     return params
 
 
-def build_command(position, params, trial_number, density_mode="cas", pred_len=96, output_dir="loss_cas_simplify"):
+def build_command(position, params, trial_number, density_mode="cas", pred_len=96, output_dir="loss_cas_simplify", jet_derivative_mode="exact"):
     if params.get("fusion_mode") != "geometry":
         raise RuntimeError(
             "This HPO script is intended for the full "
@@ -246,6 +246,7 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
 
     if "k_base" in cfg:
         cmd.extend(["--k_base", str(cfg["k_base"])])
+    cmd.extend(["--jet_derivative_mode", jet_derivative_mode])
     cmd.extend(["--no_save_checkpoint"])
     cmd.extend(["--output_dir", output_dir])
 
@@ -327,12 +328,13 @@ def run_command(cmd):
     return last_mse, last_mae, egc, egc_ratio, density_sig_mean
 
 
-def make_objective(position, bounds, density_mode, pred_len, output_dir, batch_size=256):
+def make_objective(position, bounds, density_mode, pred_len, output_dir, batch_size=256, jet_derivative_mode="exact"):
     def objective(trial):
         params = sample_params(trial, bounds, position, batch_size=batch_size)
         cmd = build_command(
             position, params, trial.number, density_mode, pred_len, 
-            output_dir=output_dir
+            output_dir=output_dir,
+            jet_derivative_mode=jet_derivative_mode
         )
         print(f"\n[Trial {trial.number}] Running HPO: {' '.join(cmd)}")
         mse, mae, egc, egc_ratio, density_sig_mean = run_command(cmd)
@@ -524,6 +526,7 @@ def main():
     
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
+    parser.add_argument("--jet_derivative_mode", type=str, default="exact", choices=["exact", "centered_legacy"], help="Gaussian Jet derivative mode (exact or centered_legacy)")
     args = parser.parse_args()
     for d_name in DATASET_CONFIGS:
         DATASET_CONFIGS[d_name]["seq_len"] = args.seq_len
@@ -560,7 +563,8 @@ def main():
                     density_mode=args.density_mode,
                     pred_len=p_len,
                     output_dir=args.output_dir,
-                    batch_size=args.batch_size
+                    batch_size=args.batch_size,
+                    jet_derivative_mode=args.jet_derivative_mode
                 ),
                 n_trials=args.trials_per_batch,
                 callbacks=[

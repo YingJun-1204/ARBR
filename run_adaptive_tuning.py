@@ -47,6 +47,7 @@ def main():
     parser.add_argument("--batch_size", type=int, default=256, choices=[8, 16, 32, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
+    parser.add_argument("--jet_derivative_mode", type=str, default="exact", choices=["exact", "centered_legacy"], help="Gaussian Jet derivative mode (exact or centered_legacy)")
     
     args = parser.parse_args()
 
@@ -93,7 +94,8 @@ def main():
                 "--num_gaussians", str(args.num_gaussians),
                 "--batch_size", str(task_batch_size),
                 "--seq_len", str(args.seq_len),
-                "--k_base", str(args.k_base)
+                "--k_base", str(args.k_base),
+                "--jet_derivative_mode", args.jet_derivative_mode,
             ]
             
             if args.use_seed:

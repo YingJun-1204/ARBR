@@ -86,6 +86,18 @@ if __name__ == "__main__":
     parser.add_argument("--jet_detach_geometry", type=int, default=1)
     parser.add_argument("--jet_scale_init", type=float, default=0.1)
     parser.add_argument("--jet_sigma_init", type=float, default=0.2)
+    parser.add_argument(
+        "--jet_derivative_mode",
+        type=str,
+        default="exact",
+        choices=["exact", "centered_legacy"],
+        help=(
+            "Construction of the first-order Gaussian Jet basis. "
+            "'exact' uses the center derivative of the normalized "
+            "Gaussian basis; 'centered_legacy' reproduces the "
+            "previous derivative-inspired implementation."
+        ),
+    )
 
     # Geometry Fusion parameters
     parser.add_argument(

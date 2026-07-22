@@ -1,6 +1,6 @@
 #!/bin/bash
-# 运行 ETTm1 数据集下的最优 Gaussian Jet 配置 (Horizon=96, 192, 336, 720, CAS Density Mode)
-# 请在项目根目录下执行：sh scripts/run_ettm1_cas.sh
+# 运行 ETTM1 数据集下的最优 Adaptive Geometry-Conditioned Gaussian Jet 配置 (V14)
+# 请在项目根目录下执行：sh scripts/run_ettm1.sh
 
 train_epochs=30
 next_is_epochs=false
@@ -19,7 +19,7 @@ for arg in "$@"; do
   fi
 done
 
-echo "==================== Starting ETTm1 Horizon 96 ===================="
+echo "==================== Starting ETTM1 Horizon 96 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
@@ -39,21 +39,29 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.35 \
+  --gs_dropout 0.45 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0001 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.35 \
+  --head_dropout 0.45 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.55 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.2 \
+  --fusion_beta_max 1.0 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des ETTm1_GaussianJet \
   "${filtered_args[@]}"
 
-echo "==================== Starting ETTm1 Horizon 192 ===================="
+echo "==================== Starting ETTM1 Horizon 192 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
@@ -73,21 +81,29 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.55 \
+  --gs_dropout 0.25 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0005 \
+  --learning_rate 0.0002 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.55 \
+  --head_dropout 0.6 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.3 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.2 \
+  --fusion_beta_max 0.5 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des ETTm1_GaussianJet \
   "${filtered_args[@]}"
 
-echo "==================== Starting ETTm1 Horizon 336 ===================="
+echo "==================== Starting ETTM1 Horizon 336 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
@@ -107,21 +123,29 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.5 \
+  --gs_dropout 0.25 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0001 \
+  --learning_rate 0.0012 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.5 \
+  --head_dropout 0.85 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.35 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.5 \
+  --fusion_beta_max 1.0 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des ETTm1_GaussianJet \
   "${filtered_args[@]}"
 
-echo "==================== Starting ETTm1 Horizon 720 ===================="
+echo "==================== Starting ETTM1 Horizon 720 ===================="
 python -u run.py \
   --task_name long_term_forecast \
   --is_training 1 \
@@ -141,16 +165,24 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.8 \
+  --gs_dropout 0.7 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0003 \
+  --learning_rate 0.002 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.8 \
+  --head_dropout 0.25 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.45 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.1 \
+  --fusion_beta_max 0.5 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des ETTm1_GaussianJet \
   "${filtered_args[@]}"

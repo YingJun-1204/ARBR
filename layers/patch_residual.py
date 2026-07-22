@@ -18,9 +18,16 @@ class GaussianJetProjection(nn.Module):
         sigma_init=0.20,
         learnable_mu=True,
         learnable_sigma=True,
+        jet_derivative_mode="exact",
         ablation_mode="none",
     ):
         super().__init__()
+        if jet_derivative_mode not in {"exact", "centered_legacy"}:
+            raise ValueError(
+                "jet_derivative_mode must be either 'exact' or 'centered_legacy', "
+                f"got {jet_derivative_mode}"
+            )
+        self.jet_derivative_mode = jet_derivative_mode
         self.ablation_mode = ablation_mode
         self.patch_len = patch_len
         self.stride = stride
@@ -69,13 +76,28 @@ class GaussianJetProjection(nn.Module):
         d_mesh = t.view(1, -1) - mu
         eps = 1e-5
         
-        # 零阶 Gaussian basis
-        phi = torch.exp(-(d_mesh**2) / (2 * sigma**2 + eps))
-        phi = phi / (phi.sum(dim=-1, keepdim=True) + eps)
-        
-        # 一阶 Gaussian derivative basis
-        psi = (d_mesh / (sigma**2 + eps)) * phi
-        psi = psi - psi.mean(dim=-1, keepdim=True)
+        # Zero-order epsilon-stabilized normalized Gaussian basis.
+        gaussian_denom = 2.0 * sigma.square() + eps
+
+        phi_raw = torch.exp(-d_mesh.square() / gaussian_denom)
+        phi = phi_raw / (phi_raw.sum(dim=-1, keepdim=True) + eps)
+
+        if self.jet_derivative_mode == "exact":
+            # Exact derivative of the normalized Gaussian basis
+            # with respect to its center mu.
+            center_score = 2.0 * d_mesh / gaussian_denom
+            normalized_score_mean = (phi * center_score).sum(dim=-1, keepdim=True)
+            psi = phi * (center_score - normalized_score_mean)
+        elif self.jet_derivative_mode == "centered_legacy":
+            # Original derivative-inspired implementation,
+            # retained only for controlled comparison.
+            psi = (d_mesh / (sigma.square() + eps)) * phi
+            psi = psi - psi.mean(dim=-1, keepdim=True)
+        else:
+            raise RuntimeError(
+                "Unexpected jet derivative mode: "
+                f"{self.jet_derivative_mode}"
+            )
         
         return phi, psi
 

@@ -65,6 +65,7 @@ class SplattingResidualEncoder(nn.Module):
         jet_detach_geometry=True,
         jet_scale_init=0.1,
         jet_sigma_init=0.2,
+        jet_derivative_mode="exact",
         fusion_mode="fixed",
         fusion_hidden_dim=16,
         fusion_init=0.1,
@@ -149,6 +150,7 @@ class SplattingResidualEncoder(nn.Module):
         self.jet_score_temperature = jet_score_temperature
         self.jet_density_tau = jet_density_tau
         self.jet_detach_geometry = jet_detach_geometry
+        self.jet_derivative_mode = jet_derivative_mode
 
         # 1. CAS Gating
         if self.density_mode == "cas":
@@ -172,6 +174,7 @@ class SplattingResidualEncoder(nn.Module):
                 num_implicit_gaussians=num_implicit_gaussians,
                 jet_scale_init=jet_scale_init,
                 sigma_init=jet_sigma_init,
+                jet_derivative_mode=jet_derivative_mode,
                 ablation_mode=ablation_mode,
             )
         else:
@@ -186,6 +189,29 @@ class SplattingResidualEncoder(nn.Module):
             )
         else:
             self.fusion_gate = None
+
+        # Global sample-independent coupling used only by the
+        # w/o Field Guidance ablation.
+        if (
+            self.use_residual
+            and self.fusion_mode == "geometry"
+            and self.ablation_mode == "wo_guidance"
+        ):
+            init_ratio = self.fusion_init / self.fusion_beta_max
+            global_fusion_logit = math.log(
+                init_ratio / (1.0 - init_ratio)
+            )
+            self.wo_guidance_fusion_logit = nn.Parameter(
+                torch.tensor(
+                    global_fusion_logit,
+                    dtype=torch.float32,
+                )
+            )
+        else:
+            self.register_parameter(
+                "wo_guidance_fusion_logit",
+                None,
+            )
 
         self.last_fusion_gate = None
         self.last_fusion_features = None
@@ -403,10 +429,27 @@ class SplattingResidualEncoder(nn.Module):
         # wo_guidance must remove both Jet guidance and field-aware
         # fusion guidance.
         if self.ablation_mode == "wo_guidance":
-            beta = self._build_constant_fusion_weight(
-                reference=rendered_event,
-                value=self.fusion_init,
+            if self.wo_guidance_fusion_logit is None:
+                raise RuntimeError(
+                    "The global fusion logit is not initialized "
+                    "for the wo_guidance ablation."
+                )
+
+            global_logit = self.wo_guidance_fusion_logit.to(
+                device=rendered_event.device,
+                dtype=rendered_event.dtype,
             )
+
+            beta_scalar = self.fusion_beta_max * torch.sigmoid(
+                global_logit
+            )
+
+            beta = beta_scalar.view(1, 1, 1).expand(
+                rendered_event.shape[0],
+                rendered_event.shape[1],
+                1,
+            )
+
             return beta, None
 
         if not torch.is_tensor(delta):
@@ -477,8 +520,18 @@ class SplattingResidualEncoder(nn.Module):
         # Forward Residual
         if self.use_residual:
             if self.ablation_mode == "wo_guidance":
-                delta_raw = 0.0
-                confidence_raw = None
+                geometry_shape = (
+                    rendered_event.shape[0],
+                    rendered_event.shape[1],
+                    1,
+                )
+
+                delta_raw = rendered_event.new_zeros(
+                    geometry_shape
+                )
+                confidence_raw = rendered_event.new_ones(
+                    geometry_shape
+                )
             else:
                 delta_raw, confidence_raw = self._compute_gaussian_score_shift(
                     mu=mu,

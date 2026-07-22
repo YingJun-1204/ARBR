@@ -1,6 +1,6 @@
 #!/bin/bash
-# 运行 weather 数据集下的最优 Gaussian Jet 配置 (Horizon=96, 192, 336, 720, CAS Density Mode)
-# 请在项目根目录下执行：sh scripts/run_weather_cas.sh
+# 运行 weather 数据集下的最优 Adaptive Geometry-Conditioned Gaussian Jet 配置 (V14)
+# 请在项目根目录下执行：sh scripts/run_weather.sh
 
 train_epochs=30
 next_is_epochs=false
@@ -41,15 +41,23 @@ python -u run.py \
   --num_gaussians 8 \
   --gs_dropout 0.7 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0012 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.7 \
+  --head_dropout 0.75 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.5 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.5 \
+  --fusion_beta_max 1.0 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des weather_GaussianJet \
   "${filtered_args[@]}"
 
@@ -73,7 +81,7 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.7 \
+  --gs_dropout 0.75 \
   --gs_weight_decay 1e-4 \
   --learning_rate 0.0012 \
   --lradj cosine \
@@ -83,7 +91,15 @@ python -u run.py \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.25 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.35 \
+  --fusion_beta_max 1.0 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des weather_GaussianJet \
   "${filtered_args[@]}"
 
@@ -107,9 +123,9 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.75 \
+  --gs_dropout 0.5 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0012 \
+  --learning_rate 0.0008 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
@@ -117,7 +133,15 @@ python -u run.py \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.35 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.1 \
+  --fusion_beta_max 0.5 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des weather_GaussianJet \
   "${filtered_args[@]}"
 
@@ -141,16 +165,24 @@ python -u run.py \
   --patch_len 24 \
   --stride 12 \
   --num_gaussians 8 \
-  --gs_dropout 0.75 \
+  --gs_dropout 0.55 \
   --gs_weight_decay 1e-4 \
-  --learning_rate 0.0005 \
+  --learning_rate 0.0002 \
   --lradj cosine \
   --train_epochs "$train_epochs" \
   --patience 6 \
-  --head_dropout 0.75 \
+  --head_dropout 0.8 \
   --head_dropout_position pre \
   --density_mode cas \
   --num_workers 0 \
-  --gs_residual_weight 0.5 \
+  --use_residual \
+  --gs_residual_weight 0.1 \
+  --fusion_mode geometry \
+  --fusion_init 0.1 \
+  --fusion_beta_max 1.0 \
+  --fusion_hidden_dim 16 \
+  --fusion_detach_geometry 1 \
+  --jet_score_temperature 0.01 \
+  --jet_max_shift_samples 1.0 \
   --des weather_GaussianJet \
   "${filtered_args[@]}"

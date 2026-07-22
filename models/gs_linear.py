@@ -102,6 +102,7 @@ class Model(nn.Module):
                 jet_detach_geometry=bool(getattr(configs, "jet_detach_geometry", 1)),
                 jet_scale_init=getattr(configs, "jet_scale_init", 0.1),
                 jet_sigma_init=getattr(configs, "jet_sigma_init", 0.2),
+                jet_derivative_mode=getattr(configs, "jet_derivative_mode", "exact"),
                 fusion_mode=fusion_mode,
                 fusion_hidden_dim=getattr(configs, "fusion_hidden_dim", 16),
                 fusion_init=fusion_init,
