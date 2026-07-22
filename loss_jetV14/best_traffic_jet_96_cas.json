@@ -1,0 +1,17 @@
+{
+    "dataset": "traffic",
+    "mse": 0.37424102425575256,
+    "mae": 0.2592523694038391,
+    "batch_size": 8,
+    "learning_rate": 0.001,
+    "gs_dropout": 0.35000000000000003,
+    "head_dropout": 0.35000000000000003,
+    "gs_residual_weight": 0.1,
+    "fusion_mode": "geometry",
+    "fusion_init": 0.1,
+    "fusion_beta_max": 0.5,
+    "fusion_hidden_dim": 16,
+    "fusion_detach_geometry": 1,
+    "jet_score_temperature": 0.01,
+    "jet_max_shift_samples": 1.0
+}

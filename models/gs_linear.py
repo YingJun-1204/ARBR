@@ -39,7 +39,8 @@ class Model(nn.Module):
                 "ettm1": 0.651924,
                 "ettm2": 0.575884,
                 "weather": 0.755071,
-                "electricity": 0.097540
+                "electricity": 0.097540,
+                "traffic": 0.187379
             }
             
             ds_key = None
@@ -55,6 +56,8 @@ class Model(nn.Module):
                 ds_key = "weather"
             elif "electricity" in dataset_name or "electricity" in data_path:
                 ds_key = "electricity"
+            elif "traffic" in dataset_name or "traffic" in data_path:
+                ds_key = "traffic"
                 
             if ds_key is not None:
                 rho_mean = rho_map[ds_key]

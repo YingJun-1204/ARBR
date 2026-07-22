@@ -91,7 +91,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--fusion_mode",
         type=str,
-        default="fixed",
+        default="geometry",
         choices=["fixed", "geometry"],
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--itr", type=int, default=1)
     parser.add_argument("--train_epochs", type=int, default=30)
-    parser.add_argument("--batch_size", type=int, default=1024)
+    parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--patience", type=int, default=6)
     parser.add_argument("--learning_rate", type=float, default=0.001)
     parser.add_argument("--des", type=str, default="test")

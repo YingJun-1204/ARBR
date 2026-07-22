@@ -1,0 +1,17 @@
+{
+    "dataset": "weather",
+    "mse": 0.2346687912940979,
+    "mae": 0.2724992632865906,
+    "batch_size": 256,
+    "learning_rate": 0.0008,
+    "gs_dropout": 0.5,
+    "head_dropout": 0.75,
+    "gs_residual_weight": 0.1,
+    "fusion_mode": "geometry",
+    "fusion_init": 0.1,
+    "fusion_beta_max": 0.5,
+    "fusion_hidden_dim": 16,
+    "fusion_detach_geometry": 1,
+    "jet_score_temperature": 0.01,
+    "jet_max_shift_samples": 1.0
+}

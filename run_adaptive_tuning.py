@@ -40,11 +40,11 @@ def main():
     parser.add_argument(
         "--datasets",
         nargs="+",
-        default=["etth1", "etth2", "ettm1", "ettm2", "weather", "electricity"],
-        help="List of datasets to tune (choices: etth1, etth2, ettm1, ettm2, weather, electricity)"
+        default=["etth1", "etth2", "ettm1", "ettm2", "weather", "electricity", "traffic"],
+        help="List of datasets to tune (choices: etth1, etth2, ettm1, ettm2, weather, electricity, traffic)"
     )
     parser.add_argument("--use_seed", action="store_true", help="Use previous best parameters as HPO seeds")
-    parser.add_argument("--batch_size", type=int, default=256, choices=[16, 32, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
+    parser.add_argument("--batch_size", type=int, default=256, choices=[8, 16, 32, 128, 256, 512, 1024], help="Fixed batch size for HPO (default: 256)")
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     
@@ -59,13 +59,14 @@ def main():
         ("ETTm2", "tune_gate_ettm2.py"),
         ("weather", "tune_gate_weather.py"),
         ("electricity", "tune_gate_electricity.py"),
+        ("traffic", "tune_gate_traffic.py"),
     ]
 
     selected = [d.lower() for d in args.datasets]
     tasks = [t for t in tasks_all if t[0].lower() in selected]
 
     if not tasks:
-        print(f"Error: No valid datasets selected from {args.datasets}. Choices: etth1, etth2, ettm1, ettm2, weather, electricity")
+        print(f"Error: No valid datasets selected from {args.datasets}. Choices: etth1, etth2, ettm1, ettm2, weather, electricity, traffic")
         sys.exit(1)
 
     total_tasks = len(tasks) * len(args.pred_len)
@@ -77,6 +78,8 @@ def main():
             task_batch_size = args.batch_size
             if dataset.lower() == "electricity" and args.batch_size == 512:
                 task_batch_size = 16
+            elif dataset.lower() == "traffic" and args.batch_size in [256, 512, 1024]:
+                task_batch_size = 8
 
             cmd = [
                 python_bin,
