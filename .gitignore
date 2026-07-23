@@ -33,3 +33,7 @@ loss_mdagV13_256/
 loss_cas_simplify/
 validation_output/
 
+# Large visualization raw outputs
+visualization/outputs/*/raw/*_all_samples.npz
+
+

@@ -89,7 +89,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--jet_derivative_mode",
         type=str,
-        default="exact",
+        default="centered_legacy",
         choices=["exact", "centered_legacy"],
         help=(
             "Construction of the first-order Gaussian Jet basis. "
