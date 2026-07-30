@@ -120,10 +120,6 @@ def sample_params(trial, bounds, position, batch_size=8):
         "fusion_init": fusion_init,
         "fusion_beta_max": fusion_beta_max,
 
-        # Keep structural choices fixed during this HPO.
-        "fusion_hidden_dim": 16,
-        "fusion_detach_geometry": 1,
-
         # Keep the corrected Jet geometry settings fixed.
         "jet_score_temperature": 0.01,
         "jet_max_shift_samples": 1.0,
@@ -228,10 +224,6 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
         str(params["fusion_init"]),
         "--fusion_beta_max",
         str(params["fusion_beta_max"]),
-        "--fusion_hidden_dim",
-        str(params["fusion_hidden_dim"]),
-        "--fusion_detach_geometry",
-        str(params["fusion_detach_geometry"]),
         "--jet_score_temperature",
         str(params["jet_score_temperature"]),
         "--jet_max_shift_samples",
@@ -441,8 +433,6 @@ def save_best_callback(position, output_dir, density_mode, pred_len, num_gaussia
             best_tuned["fusion_mode"] = "geometry"
             best_tuned["fusion_init"] = float(best_params.get("fusion_init", 0.1))
             best_tuned["fusion_beta_max"] = float(best_params.get("fusion_beta_max", 0.5))
-            best_tuned["fusion_hidden_dim"] = 16
-            best_tuned["fusion_detach_geometry"] = 1
             best_tuned["jet_score_temperature"] = 0.01
             best_tuned["jet_max_shift_samples"] = 1.0
             

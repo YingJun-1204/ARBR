@@ -17,7 +17,7 @@ class Model(nn.Module):
         self.num_patches_srs = math.ceil((self.seq_len - self.patch_len) / self.stride) + 1
         self.representation_name = getattr(configs, "representation", "gs")
         ablation_mode = getattr(configs, "ablation_mode", "none")
-        if ablation_mode == "linear_only":
+        if ablation_mode == "observation_only":
             self.representation_name = "patch_linear"
 
         self.norm = RevIN(
@@ -79,9 +79,6 @@ class Model(nn.Module):
             fusion_init = getattr(configs, "fusion_init", -1.0)
             if fusion_init < 0.0:
                 fusion_init = gs_residual_weight
-
-            if ablation_mode == "wo_adaptive_fusion":
-                fusion_mode = "fixed"
 
             self.splatting_residual = SplattingResidualEncoder(
                 seq_len=configs.seq_len,

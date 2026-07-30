@@ -160,9 +160,13 @@ def extract_dataset_geometry(dataset_name, pred_len, seq_len, root_path, checkpo
         # 2. Gaussian Generator parameters
         raw_params = generator(x_flat).view(B * C, num_gaussians, -1)
         mu = torch.sigmoid(raw_params[:, :, 0]) # (B*C, K)
-        sigma = F.softplus(raw_params[:, :, 1]) + 1e-5 # (B*C, K)
-        alpha = torch.sigmoid(raw_params[:, :, 2]) # (B*C, K)
-        effective_alpha = alpha * gate_hard # (B*C, K)
+        if hasattr(splat_encoder.gaussian_splatting, "raw_sigma"):
+            sigma_shared = F.softplus(splat_encoder.gaussian_splatting.raw_sigma) + 1e-5
+            sigma = sigma_shared.unsqueeze(0).expand(B * C, -1) # (B*C, K)
+        else:
+            sigma = F.softplus(raw_params[:, :, 1]) + 1e-5 # (B*C, K)
+        alpha = torch.ones_like(mu)
+        effective_alpha = gate_hard # (B*C, K)
 
         # Move to CPU numpy
         x_norm_np = x_norm.detach().cpu().numpy() # (B, T, C)

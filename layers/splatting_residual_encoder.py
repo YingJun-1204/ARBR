@@ -108,26 +108,19 @@ class SplattingResidualEncoder(nn.Module):
                 f"stride={self.stride}"
             )
 
-        if fusion_mode not in {"fixed", "geometry"}:
-            raise ValueError(
-                "fusion_mode must be either 'fixed' or 'geometry', "
-                f"got {fusion_mode}"
-            )
-
         if fusion_beta_max <= 0.0:
             raise ValueError(
                 "fusion_beta_max must be positive, "
                 f"got {fusion_beta_max}"
             )
 
-        if fusion_mode == "geometry":
-            if not 0.0 < fusion_init < fusion_beta_max:
-                raise ValueError(
-                    "For geometry fusion, fusion_init must satisfy "
-                    "0 < fusion_init < fusion_beta_max, "
-                    f"got fusion_init={fusion_init}, "
-                    f"fusion_beta_max={fusion_beta_max}"
-                )
+        if not 0.0 < fusion_init < fusion_beta_max:
+            raise ValueError(
+                "fusion_init must satisfy "
+                "0 < fusion_init < fusion_beta_max, "
+                f"got fusion_init={fusion_init}, "
+                f"fusion_beta_max={fusion_beta_max}"
+            )
 
         self.num_gaussians = num_gaussians
         self.density_mode = density_mode
@@ -138,10 +131,7 @@ class SplattingResidualEncoder(nn.Module):
         self.fusion_beta_max = float(fusion_beta_max)
         self.fusion_detach_geometry = bool(fusion_detach_geometry)
 
-        if fusion_mode == "fixed":
-            residual_capacity = float(gs_residual_weight)
-        else:
-            residual_capacity = float(fusion_beta_max)
+        residual_capacity = float(fusion_beta_max)
 
         self.use_residual = bool(use_residual and residual_capacity > 0.0)
         self.gs_residual_weight = float(gs_residual_weight)
@@ -181,7 +171,7 @@ class SplattingResidualEncoder(nn.Module):
             self.patch_residual = None
 
         # 2.5 Geometry Fusion Gate
-        if self.use_residual and self.fusion_mode == "geometry":
+        if self.use_residual:
             self.fusion_gate = GeometryConditionedResidualGate(
                 hidden_dim=fusion_hidden_dim,
                 beta_init=fusion_init,
@@ -190,28 +180,7 @@ class SplattingResidualEncoder(nn.Module):
         else:
             self.fusion_gate = None
 
-        # Global sample-independent coupling used only by the
-        # w/o Field Guidance ablation.
-        if (
-            self.use_residual
-            and self.fusion_mode == "geometry"
-            and self.ablation_mode == "wo_guidance"
-        ):
-            init_ratio = self.fusion_init / self.fusion_beta_max
-            global_fusion_logit = math.log(
-                init_ratio / (1.0 - init_ratio)
-            )
-            self.wo_guidance_fusion_logit = nn.Parameter(
-                torch.tensor(
-                    global_fusion_logit,
-                    dtype=torch.float32,
-                )
-            )
-        else:
-            self.register_parameter(
-                "wo_guidance_fusion_logit",
-                None,
-            )
+
 
         self.last_fusion_gate = None
         self.last_fusion_features = None
@@ -235,7 +204,8 @@ class SplattingResidualEncoder(nn.Module):
             num_gaussians=num_gaussians,
             gs_dropout=gs_dropout,
             density_mode=density_mode,
-            use_occlusion=use_occlusion
+            use_occlusion=use_occlusion,
+            jet_sigma_init=jet_sigma_init,
         )
 
         # CAS specific states
@@ -404,86 +374,16 @@ class SplattingResidualEncoder(nn.Module):
     def _compute_fusion_weight(
         self,
         rendered_event,
-        delta,
-        confidence,
+        delta=None,
+        confidence=None,
     ):
         """
-        Compute the residual injection weight.
-
-        Geometry fusion is intentionally disabled for the wo_guidance
-        ablation, which falls back to a constant initial weight.
+        Compute the residual injection weight: beta = beta_max * sigmoid(b).
         """
-        if self.fusion_mode == "fixed":
-            beta = self._build_constant_fusion_weight(
-                reference=rendered_event,
-                value=self.gs_residual_weight,
-            )
-            return beta, None
-
         if self.fusion_gate is None:
-            raise RuntimeError(
-                "fusion_gate is not initialized while "
-                "fusion_mode='geometry'"
-            )
+            raise RuntimeError("fusion_gate is not initialized")
 
-        # wo_guidance must remove both Jet guidance and field-aware
-        # fusion guidance.
-        if self.ablation_mode == "wo_guidance":
-            if self.wo_guidance_fusion_logit is None:
-                raise RuntimeError(
-                    "The global fusion logit is not initialized "
-                    "for the wo_guidance ablation."
-                )
-
-            global_logit = self.wo_guidance_fusion_logit.to(
-                device=rendered_event.device,
-                dtype=rendered_event.dtype,
-            )
-
-            beta_scalar = self.fusion_beta_max * torch.sigmoid(
-                global_logit
-            )
-
-            beta = beta_scalar.view(1, 1, 1).expand(
-                rendered_event.shape[0],
-                rendered_event.shape[1],
-                1,
-            )
-
-            return beta, None
-
-        if not torch.is_tensor(delta):
-            raise TypeError(
-                "delta must be a tensor for geometry fusion"
-            )
-
-        if confidence is None:
-            raise ValueError(
-                "confidence must not be None for geometry fusion"
-            )
-
-        delta_for_fusion = delta
-        confidence_for_fusion = confidence
-
-        if self.fusion_detach_geometry:
-            delta_for_fusion = (
-                delta_for_fusion.detach()
-            )
-            confidence_for_fusion = (
-                confidence_for_fusion.detach()
-            )
-
-        max_shift_local = (
-            self.jet_max_shift_samples
-            / float(self.patch_len - 1)
-        )
-
-        beta, geometry_features = self.fusion_gate(
-            confidence=confidence_for_fusion,
-            delta=delta_for_fusion,
-            max_shift_local=max_shift_local,
-        )
-
+        beta, geometry_features = self.fusion_gate()
         return beta, geometry_features
 
     def forward(self, x_seq, patch_num, is_flat=False):
@@ -519,26 +419,12 @@ class SplattingResidualEncoder(nn.Module):
 
         # Forward Residual
         if self.use_residual:
-            if self.ablation_mode == "wo_guidance":
-                geometry_shape = (
-                    rendered_event.shape[0],
-                    rendered_event.shape[1],
-                    1,
-                )
-
-                delta_raw = rendered_event.new_zeros(
-                    geometry_shape
-                )
-                confidence_raw = rendered_event.new_ones(
-                    geometry_shape
-                )
-            else:
-                delta_raw, confidence_raw = self._compute_gaussian_score_shift(
-                    mu=mu,
-                    sigma=sigma,
-                    alpha_effective=alpha_effective,
-                    query_positions=query_positions,
-                )
+            delta_raw, confidence_raw = self._compute_gaussian_score_shift(
+                mu=mu,
+                sigma=sigma,
+                alpha_effective=alpha_effective,
+                query_positions=query_positions,
+            )
                 
 
 
@@ -557,7 +443,7 @@ class SplattingResidualEncoder(nn.Module):
             delta_for_jet = delta_raw
             confidence_for_jet = confidence_raw
 
-            if self.ablation_mode != "wo_guidance" and self.jet_detach_geometry:
+            if self.jet_detach_geometry:
                 delta_for_jet = delta_for_jet.detach()
                 if torch.is_tensor(confidence_for_jet):
                     confidence_for_jet = confidence_for_jet.detach()

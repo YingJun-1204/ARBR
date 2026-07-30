@@ -105,7 +105,7 @@ class GaussianJetProjection(nn.Module):
         patches = self._extract_patches(x_seq)
         base = self.base_projection(patches)
         
-        if self.ablation_mode == "wo_jet":
+        if self.ablation_mode == "observation_only":
             return base
             
         phi, psi = self._build_gaussian_jet(patches.device, patches.dtype)

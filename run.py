@@ -76,7 +76,17 @@ if __name__ == "__main__":
     parser.add_argument("--gs_residual_weight", type=float, default=0.1, help="Gating weight multiplier for residual shortcut")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for configurations and diagnostics")
-    parser.add_argument("--ablation_mode", type=str, default="none", choices=["none", "gaussian_only", "linear_only", "wo_jet", "wo_guidance", "wo_adaptive_fusion"], help="Ablation mode for model components")
+    parser.add_argument(
+        "--ablation_mode",
+        type=str,
+        default="none",
+        choices=[
+            "none",
+            "gaussian_only",
+            "observation_only",
+        ],
+        help="Ablation mode for model components: gaussian_only or observation_only",
+    )
 
     # Gaussian Jet parameters
     parser.add_argument("--num_implicit_gaussians", type=int, default=4)
@@ -89,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--jet_derivative_mode",
         type=str,
-        default="centered_legacy",
+        default="exact",
         choices=["exact", "centered_legacy"],
         help=(
             "Construction of the first-order Gaussian Jet basis. "
@@ -104,7 +114,7 @@ if __name__ == "__main__":
         "--fusion_mode",
         type=str,
         default="geometry",
-        choices=["fixed", "geometry"],
+        choices=["geometry"],
     )
     parser.add_argument(
         "--fusion_hidden_dim",

@@ -1,0 +1,15 @@
+{
+    "dataset": "ETTh1",
+    "mse": 0.44010797142982483,
+    "mae": 0.4605606198310852,
+    "batch_size": 256,
+    "learning_rate": 0.0008,
+    "gs_dropout": 0.6000000000000001,
+    "head_dropout": 0.7,
+    "gs_residual_weight": 0.1,
+    "fusion_mode": "geometry",
+    "fusion_init": 0.35,
+    "fusion_beta_max": 1.0,
+    "jet_score_temperature": 0.01,
+    "jet_max_shift_samples": 1.0
+}

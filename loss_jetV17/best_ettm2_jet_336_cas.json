@@ -1,0 +1,15 @@
+{
+    "dataset": "ETTm2",
+    "mse": 0.2652718424797058,
+    "mae": 0.3215993344783783,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "gs_dropout": 0.8,
+    "head_dropout": 0.35000000000000003,
+    "gs_residual_weight": 0.1,
+    "fusion_mode": "geometry",
+    "fusion_init": 0.5,
+    "fusion_beta_max": 0.75,
+    "jet_score_temperature": 0.01,
+    "jet_max_shift_samples": 1.0
+}

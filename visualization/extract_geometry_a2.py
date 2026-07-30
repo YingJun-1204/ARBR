@@ -542,16 +542,21 @@ def _decode_geometry(
             "Generator output is not a tensor and no forward-exposed geometry was found."
         )
     raw = raw_output.reshape(expected_rows, num_gaussians, -1)
-    if raw.shape[-1] < 3:
+    if raw.shape[-1] < 1:
         raise RuntimeError(f"Generator output has insufficient per-primitive fields: {raw.shape}")
 
     eps_sigma = float(getattr(gaussian_module, "eps_sigma", 1e-5))
     mu = torch.sigmoid(raw[:, :, 0])
-    sigma = F.softplus(raw[:, :, 1]) + eps_sigma
-    alpha = torch.sigmoid(raw[:, :, 2])
+    if hasattr(gaussian_module, "raw_sigma"):
+        sigma_shared = F.softplus(gaussian_module.raw_sigma) + eps_sigma
+        sigma = sigma_shared.unsqueeze(0).expand(expected_rows, -1)
+        alpha = torch.ones_like(mu)
+    else:
+        sigma = F.softplus(raw[:, :, 1]) + eps_sigma
+        alpha = torch.sigmoid(raw[:, :, 2])
     warnings.warn(
-        "The model did not expose constrained geometry; using fallback parameterization "
-        "sigmoid(mu), softplus(sigma), sigmoid(alpha). Verify this matches the actual model forward.",
+        "The model did not expose constrained geometry; using fallback parameterization. "
+        "Verify this matches the actual model forward.",
         RuntimeWarning,
     )
     return mu, sigma, alpha, "fallback_generator_parameterization"
