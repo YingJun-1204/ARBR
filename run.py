@@ -140,6 +140,38 @@ if __name__ == "__main__":
         type=int,
         default=1,
     )
+
+    # Scale-Aware Affine Gaussian Jet parameters
+    parser.add_argument(
+        "--use_scale_jet",
+        action="store_true",
+        default=False,
+        help="Enable Content-Geometry Translation-Scale Affine Gaussian Jet",
+    )
+    parser.add_argument(
+        "--scale_cue_mode",
+        type=str,
+        default="hybrid",
+        choices=["field_only", "patch_only", "hybrid"],
+        help="Scale cue signal source",
+    )
+    parser.add_argument(
+        "--scale_cue_detach",
+        type=int,
+        default=1,
+        help="Stop-gradient from scale path to field geometry (1=detach, 0=allow gradient)",
+    )
+    parser.add_argument(
+        "--scale_boundary_attenuation",
+        type=int,
+        default=1,
+        help="Enable edge margin attenuation for field scale cue",
+    )
+    parser.add_argument("--scale_rho_max", type=float, default=0.25)
+    parser.add_argument("--scale_z_max", type=float, default=3.0)
+    parser.add_argument("--scale_gamma_field_init", type=float, default=0.05)
+    parser.add_argument("--scale_gamma_patch_init", type=float, default=0.05)
+    parser.add_argument("--scale_eps", type=float, default=1e-6)
     parser.add_argument(
         "--diag",
         action="store_true",

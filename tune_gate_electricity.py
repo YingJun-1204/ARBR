@@ -71,7 +71,7 @@ def make_bounds():
     return DEFAULT_BOUNDS.copy()
 
 
-def sample_params(trial, bounds, position, batch_size=16):
+def sample_params(trial, bounds, position, batch_size=256, jet_max_shift_samples=1.0):
     gs_dropout = trial.suggest_float(
         "gs_dropout",
         bounds["gs_dropout_lower"],
@@ -125,7 +125,7 @@ def sample_params(trial, bounds, position, batch_size=16):
 
         # Keep the corrected Jet geometry settings fixed.
         "jet_score_temperature": 0.01,
-        "jet_max_shift_samples": 1.0,
+        "jet_max_shift_samples": float(jet_max_shift_samples),
     }
 
     if position == "none":
@@ -141,7 +141,7 @@ def sample_params(trial, bounds, position, batch_size=16):
     return params
 
 
-def build_command(position, params, trial_number, density_mode="cas", pred_len=96, output_dir="loss_cas_simplify", jet_derivative_mode="exact"):
+def build_command(position, params, trial_number, density_mode="cas", pred_len=96, output_dir="loss_cas_simplify", jet_derivative_mode="exact", use_scale_jet=False):
     if params.get("fusion_mode") != "geometry":
         raise RuntimeError(
             "This HPO script is intended for the full "
@@ -236,6 +236,9 @@ def build_command(position, params, trial_number, density_mode="cas", pred_len=9
         f"Ablation_electricity_jet",
     ]
 
+    if use_scale_jet:
+        cmd.append("--use_scale_jet")
+
     if "k_base" in cfg:
         cmd.extend(["--k_base", str(cfg["k_base"])])
     cmd.extend(["--jet_derivative_mode", jet_derivative_mode])
@@ -320,13 +323,14 @@ def run_command(cmd):
     return last_mse, last_mae, egc, egc_ratio, density_sig_mean
 
 
-def make_objective(position, bounds, density_mode, pred_len, output_dir, batch_size=16, jet_derivative_mode="exact"):
+def make_objective(position, bounds, density_mode, pred_len, output_dir, batch_size=256, jet_derivative_mode="exact", use_scale_jet=False, jet_max_shift_samples=1.0):
     def objective(trial):
-        params = sample_params(trial, bounds, position, batch_size=batch_size)
+        params = sample_params(trial, bounds, position, batch_size=batch_size, jet_max_shift_samples=jet_max_shift_samples)
         cmd = build_command(
             position, params, trial.number, density_mode, pred_len, 
             output_dir=output_dir,
-            jet_derivative_mode=jet_derivative_mode
+            jet_derivative_mode=jet_derivative_mode,
+            use_scale_jet=use_scale_jet,
         )
         print(f"\n[Trial {trial.number}] Running HPO: {' '.join(cmd)}")
         mse, mae, egc, egc_ratio, density_sig_mean = run_command(cmd)
@@ -341,14 +345,12 @@ def make_objective(position, bounds, density_mode, pred_len, output_dir, batch_s
         if density_sig_mean is not None:
             trial.set_user_attr("density_sigmoid_mean", density_sig_mean)
             
-        # Health check penalties removed
-            
         return mse
 
     return objective
 
 
-def save_best_callback(position, output_dir, density_mode, pred_len, num_gaussians=None):
+def save_best_callback(position, output_dir, density_mode, pred_len, num_gaussians=None, jet_max_shift_samples=1.0):
     def callback(study, trial):
         if trial.state != optuna.trial.TrialState.COMPLETE:
             return
@@ -439,7 +441,7 @@ def save_best_callback(position, output_dir, density_mode, pred_len, num_gaussia
             best_tuned["fusion_init"] = float(best_params.get("fusion_init", 0.1))
             best_tuned["fusion_beta_max"] = float(best_params.get("fusion_beta_max", 0.5))
             best_tuned["jet_score_temperature"] = 0.01
-            best_tuned["jet_max_shift_samples"] = 1.0
+            best_tuned["jet_max_shift_samples"] = float(jet_max_shift_samples)
             
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(best_tuned, f, indent=4)
@@ -517,6 +519,8 @@ def main():
     parser.add_argument("--seq_len", type=int, default=512, help="Sequence length / lookback window (default: 512)")
     parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
     parser.add_argument("--jet_derivative_mode", type=str, default="exact", choices=["exact", "centered_legacy"], help="Gaussian Jet derivative mode (exact or centered_legacy)")
+    parser.add_argument("--jet_max_shift_samples", type=float, default=1.0, help="Max shift samples for Gaussian Jet (default: 1.0)")
+    parser.add_argument("--use_scale_jet", action="store_true", default=False, help="Enable Content-Geometry Translation-Scale Affine Gaussian Jet")
     args = parser.parse_args()
     for d_name in DATASET_CONFIGS:
         DATASET_CONFIGS[d_name]["seq_len"] = args.seq_len
@@ -554,7 +558,9 @@ def main():
                     pred_len=p_len,
                     output_dir=args.output_dir,
                     batch_size=args.batch_size,
-                    jet_derivative_mode=args.jet_derivative_mode
+                    jet_derivative_mode=args.jet_derivative_mode,
+                    use_scale_jet=args.use_scale_jet,
+                    jet_max_shift_samples=args.jet_max_shift_samples,
                 ),
                 n_trials=args.trials_per_batch,
                 callbacks=[
@@ -563,7 +569,8 @@ def main():
                         output_dir=args.output_dir,
                         density_mode=args.density_mode,
                         pred_len=p_len,
-                        num_gaussians=args.num_gaussians
+                        num_gaussians=args.num_gaussians,
+                        jet_max_shift_samples=args.jet_max_shift_samples,
                     )
                 ],
             )

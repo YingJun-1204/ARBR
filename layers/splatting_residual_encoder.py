@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 from layers.cas_gating import CASGating
 from layers.gaussian_splatting import TemporalGaussianSplatting
@@ -72,11 +73,33 @@ class SplattingResidualEncoder(nn.Module):
         fusion_beta_max=0.5,
         fusion_detach_geometry=True,
         ablation_mode="none",
+        use_scale_jet=False,
+        scale_cue_mode="hybrid",
+        scale_cue_detach=True,
+        scale_boundary_attenuation=True,
+        scale_rho_max=0.25,
+        scale_z_max=3.0,
+        scale_gamma_field_init=0.05,
+        scale_gamma_patch_init=0.05,
+        scale_eps=1e-6,
     ):
         super().__init__()
         self.seq_len = int(seq_len)
         self.patch_len = int(patch_len)
         self.stride = int(stride)
+
+        self.use_scale_jet = bool(use_scale_jet)
+        self.scale_cue_mode = scale_cue_mode
+        self.scale_cue_detach = bool(scale_cue_detach)
+        self.scale_boundary_attenuation = bool(scale_boundary_attenuation)
+        self.scale_rho_max = float(scale_rho_max)
+        self.scale_z_max = float(scale_z_max)
+        self.scale_eps = float(scale_eps)
+
+        raw_gamma_field = math.log(math.exp(scale_gamma_field_init) - 1.0) if scale_gamma_field_init < 20.0 else scale_gamma_field_init
+        raw_gamma_patch = math.log(math.exp(scale_gamma_patch_init) - 1.0) if scale_gamma_patch_init < 20.0 else scale_gamma_patch_init
+        self.scale_gamma_field = nn.Parameter(torch.tensor(raw_gamma_field, dtype=torch.float32))
+        self.scale_gamma_patch = nn.Parameter(torch.tensor(raw_gamma_patch, dtype=torch.float32))
 
         self.patch_num = (
             math.ceil(
@@ -354,6 +377,109 @@ class SplattingResidualEncoder(nn.Module):
 
         return delta_local, confidence
 
+    def _compute_hybrid_scale_shift(
+        self,
+        mu,
+        sigma,
+        alpha_effective,
+        query_positions,
+        x_seq,
+        confidence,
+    ):
+        eps = float(self.scale_eps)
+        K = self.num_gaussians
+        t = query_positions.to(device=mu.device, dtype=mu.dtype)
+
+        # 1. Field-derived spread
+        t_expanded = t.view(1, self.patch_num, 1)
+        distance_global = t_expanded - mu.unsqueeze(1)
+        score_weights = alpha_effective.unsqueeze(1) * torch.exp(
+            -(distance_global ** 2) / (2 * sigma.unsqueeze(1) ** 2 + eps)
+        )
+        precision_global = 1.0 / (sigma.unsqueeze(1) ** 2 + eps)
+        a_jk = score_weights * precision_global
+        pi_jk = a_jk / (a_jk.sum(dim=-1, keepdim=True) + eps)
+
+        mean_mu_j = (pi_jk * mu.unsqueeze(1)).sum(dim=-1, keepdim=True)
+        v_between_j = (pi_jk * (mu.unsqueeze(1) - mean_mu_j) ** 2).sum(dim=-1)
+        v_within_j = (pi_jk * (sigma.unsqueeze(1) ** 2)).sum(dim=-1)
+
+        r_field = torch.log1p(v_between_j / (v_within_j + eps))
+
+        # 2. Primitive diversity reliability
+        diversity = 1.0 - (pi_jk ** 2).sum(dim=-1)
+        if K > 1:
+            R_div = torch.clamp(diversity / (1.0 - 1.0 / K + eps), 0.0, 1.0)
+        else:
+            R_div = torch.zeros_like(diversity)
+
+        # 3. Boundary reliability
+        if self.scale_boundary_attenuation:
+            edge_margin = float(self.patch_len) / max(float(self.seq_len - 1), 1.0)
+            edge_distance = torch.minimum(t, 1.0 - t)
+            R_edge = torch.clamp(edge_distance / (edge_margin + eps), 0.0, 1.0).unsqueeze(0)
+        else:
+            R_edge = torch.ones_like(diversity)
+
+        R_geom = R_div * R_edge
+
+        # 4. Patch-content roughness
+        if self.patch_residual is not None:
+            patches = self.patch_residual._extract_patches(x_seq)
+            E_signal = (patches ** 2).mean(dim=-1)
+            diff = patches[..., 1:] - patches[..., :-1]
+            E_diff = (diff ** 2).mean(dim=-1)
+            r_patch = torch.log1p(E_diff / (E_signal + eps))
+        else:
+            r_patch = torch.zeros_like(r_field)
+
+        # 5. Standardization
+        if confidence is not None:
+            if confidence.ndim == 3 and confidence.shape[-1] == 1:
+                conf = confidence.squeeze(-1)
+            else:
+                conf = confidence
+            weight = conf * R_geom
+        else:
+            weight = R_geom
+
+        if self.scale_cue_detach:
+            r_field_in = r_field.detach()
+            R_geom_in = R_geom.detach()
+            r_patch_in = r_patch.detach()
+            weight_in = weight.detach()
+        else:
+            r_field_in = r_field
+            R_geom_in = R_geom
+            r_patch_in = r_patch
+            weight_in = weight
+
+        w_sum = weight_in.sum(dim=1, keepdim=True) + eps
+        mean_field = (r_field_in * weight_in).sum(dim=1, keepdim=True) / w_sum
+        var_field = (weight_in * (r_field_in - mean_field) ** 2).sum(dim=1, keepdim=True) / w_sum
+        z_field = (r_field_in - mean_field) / (torch.sqrt(var_field + eps))
+
+        mean_patch = r_patch_in.mean(dim=1, keepdim=True)
+        var_patch = r_patch_in.var(dim=1, keepdim=True, unbiased=False)
+        z_patch = (r_patch_in - mean_patch) / (torch.sqrt(var_patch + eps))
+
+        z_field = torch.clamp(z_field, -self.scale_z_max, self.scale_z_max)
+        z_patch = torch.clamp(z_patch, -self.scale_z_max, self.scale_z_max)
+
+        # 6. Hybrid shift
+        gamma_field = F.softplus(self.scale_gamma_field)
+        gamma_patch = F.softplus(self.scale_gamma_patch)
+
+        if self.scale_cue_mode == "field_only":
+            cue = gamma_field * R_geom_in * z_field
+        elif self.scale_cue_mode == "patch_only":
+            cue = -gamma_patch * z_patch
+        else:
+            cue = gamma_field * R_geom_in * z_field - gamma_patch * z_patch
+
+        rho = self.scale_rho_max * torch.tanh(cue)
+        return rho
+
     def _build_constant_fusion_weight(
         self,
         reference: torch.Tensor,
@@ -425,8 +551,6 @@ class SplattingResidualEncoder(nn.Module):
                 alpha_effective=alpha_effective,
                 query_positions=query_positions,
             )
-                
-
 
             # Store geometry statistics for diagnostics.
             if torch.is_tensor(delta_raw):
@@ -448,10 +572,23 @@ class SplattingResidualEncoder(nn.Module):
                 if torch.is_tensor(confidence_for_jet):
                     confidence_for_jet = confidence_for_jet.detach()
 
+            rho_for_jet = None
+            if self.use_scale_jet:
+                rho_for_jet = self._compute_hybrid_scale_shift(
+                    mu=mu,
+                    sigma=sigma,
+                    alpha_effective=alpha_effective,
+                    query_positions=query_positions,
+                    x_seq=x_seq,
+                    confidence=confidence_raw,
+                )
+
             res_proj = self.patch_residual(
                 x_seq=x_seq,
                 delta=delta_for_jet,
                 confidence=confidence_for_jet,
+                rho=rho_for_jet,
+                use_scale_jet=self.use_scale_jet,
             )
 
             # Geometry-conditioned route-level coupling.

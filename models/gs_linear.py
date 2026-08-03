@@ -106,6 +106,15 @@ class Model(nn.Module):
                 fusion_beta_max=getattr(configs, "fusion_beta_max", 0.5),
                 fusion_detach_geometry=bool(getattr(configs, "fusion_detach_geometry", 1)),
                 ablation_mode=ablation_mode,
+                use_scale_jet=getattr(configs, "use_scale_jet", False),
+                scale_cue_mode=getattr(configs, "scale_cue_mode", "hybrid"),
+                scale_cue_detach=getattr(configs, "scale_cue_detach", True),
+                scale_boundary_attenuation=getattr(configs, "scale_boundary_attenuation", True),
+                scale_rho_max=getattr(configs, "scale_rho_max", 0.25),
+                scale_z_max=getattr(configs, "scale_z_max", 3.0),
+                scale_gamma_field_init=getattr(configs, "scale_gamma_field_init", 0.05),
+                scale_gamma_patch_init=getattr(configs, "scale_gamma_patch_init", 0.05),
+                scale_eps=getattr(configs, "scale_eps", 1e-6),
             )
             self.representation = self.splatting_residual
         elif self.representation_name == "patch_linear":

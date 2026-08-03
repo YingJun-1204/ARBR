@@ -68,10 +68,11 @@ class GaussianJetProjection(nn.Module):
         patches = patches.reshape(batch_channel, self.patch_num, self.patch_len)
         return patches
 
-    def _build_gaussian_jet(self, device, dtype):
+    def _build_gaussian_jet(self, device, dtype, use_scale_jet=False):
         t = torch.linspace(0, 1, self.patch_len, device=device, dtype=dtype)
         mu = self.g_mu.view(-1, 1).to(device=device, dtype=dtype)
-        sigma = (F.softplus(self.g_sigma) + 0.03).view(-1, 1).to(device=device, dtype=dtype)
+        sigma_val = F.softplus(self.g_sigma) + 0.03
+        sigma = sigma_val.view(-1, 1).to(device=device, dtype=dtype)
         
         d_mesh = t.view(1, -1) - mu
         eps = 1e-5
@@ -83,38 +84,55 @@ class GaussianJetProjection(nn.Module):
         phi = phi_raw / (phi_raw.sum(dim=-1, keepdim=True) + eps)
 
         if self.jet_derivative_mode == "exact":
-            # Exact derivative of the normalized Gaussian basis
-            # with respect to its center mu.
+            # Exact derivative of the normalized Gaussian basis with respect to center mu:
             center_score = 2.0 * d_mesh / gaussian_denom
             normalized_score_mean = (phi * center_score).sum(dim=-1, keepdim=True)
-            psi = phi * (center_score - normalized_score_mean)
+            psi_center = phi * (center_score - normalized_score_mean)
+
+            if use_scale_jet:
+                # Exact derivative of normalized Gaussian basis with respect to log(sigma):
+                logscale_score = 4.0 * (sigma.square()) * (d_mesh.square()) / (gaussian_denom.square())
+                logscale_score_mean = (phi * logscale_score).sum(dim=-1, keepdim=True)
+                psi_scale = phi * (logscale_score - logscale_score_mean)
+            else:
+                psi_scale = None
         elif self.jet_derivative_mode == "centered_legacy":
-            # Original derivative-inspired implementation,
-            # retained only for controlled comparison.
-            psi = (d_mesh / (sigma.square() + eps)) * phi
-            psi = psi - psi.mean(dim=-1, keepdim=True)
+            psi_center = (d_mesh / (sigma.square() + eps)) * phi
+            psi_center = psi_center - psi_center.mean(dim=-1, keepdim=True)
+            psi_scale = None
         else:
             raise RuntimeError(
                 "Unexpected jet derivative mode: "
                 f"{self.jet_derivative_mode}"
             )
         
-        return phi, psi
+        return phi, psi_center, psi_scale
 
-    def forward(self, x_seq, delta, confidence=None):
+    def forward(self, x_seq, delta, confidence=None, rho=None, use_scale_jet=False):
         patches = self._extract_patches(x_seq)
         base = self.base_projection(patches)
         
         if self.ablation_mode == "observation_only":
             return base
             
-        phi, psi = self._build_gaussian_jet(patches.device, patches.dtype)
+        phi, psi_center, psi_scale = self._build_gaussian_jet(
+            patches.device, patches.dtype, use_scale_jet=use_scale_jet
+        )
         
         q0 = torch.einsum("npl,kl->npk", patches, phi)
-        q1 = torch.einsum("npl,kl->npk", patches, psi)
+        q1 = torch.einsum("npl,kl->npk", patches, psi_center)
         
-        q_jet = q0 + delta * q1
-        jet = self.gaussian_up(q_jet)
+        q_affine = q0 + delta * q1
+
+        if use_scale_jet and rho is not None and psi_scale is not None:
+            q2 = torch.einsum("npl,kl->npk", patches, psi_scale)
+            if rho.ndim == 2:
+                rho_expanded = rho.unsqueeze(-1)
+            else:
+                rho_expanded = rho
+            q_affine = q_affine + rho_expanded * q2
+
+        jet = self.gaussian_up(q_affine)
         
         if confidence is None:
             confidence = 1.0

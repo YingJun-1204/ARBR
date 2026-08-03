@@ -1,0 +1,15 @@
+{
+    "dataset": "electricity",
+    "mse": 0.13287685811519623,
+    "mae": 0.2295992076396942,
+    "batch_size": 32,
+    "learning_rate": 0.0018,
+    "gs_dropout": 0.5,
+    "head_dropout": 0.8,
+    "gs_residual_weight": 0.1,
+    "fusion_mode": "geometry",
+    "fusion_init": 0.5,
+    "fusion_beta_max": 1.0,
+    "jet_score_temperature": 0.01,
+    "jet_max_shift_samples": 1.0
+}
