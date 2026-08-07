@@ -50,6 +50,7 @@ def main():
     parser.add_argument("--jet_derivative_mode", type=str, default="exact", choices=["exact", "centered_legacy"], help="Gaussian Jet derivative mode (exact or centered_legacy)")
     parser.add_argument("--jet_max_shift_samples", type=float, default=1.0, help="Max shift samples for Gaussian Jet (default: 1.0)")
     parser.add_argument("--use_scale_jet", action="store_true", default=False, help="Enable Content-Geometry Translation-Scale Affine Gaussian Jet in HPO")
+    parser.add_argument("--ablation_mode", type=str, default="none", choices=["none", "gaussian_only", "observation_only", "wo_ajc", "wo_jet"], help="Ablation mode for model components: gaussian_only, observation_only, wo_ajc, or wo_jet")
     
     args = parser.parse_args()
 
@@ -99,6 +100,7 @@ def main():
                 "--k_base", str(args.k_base),
                 "--jet_derivative_mode", args.jet_derivative_mode,
                 "--jet_max_shift_samples", str(args.jet_max_shift_samples),
+                "--ablation_mode", args.ablation_mode,
             ]
             if args.use_scale_jet:
                 cmd.append("--use_scale_jet")

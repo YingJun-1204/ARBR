@@ -112,7 +112,7 @@ class GaussianJetProjection(nn.Module):
         patches = self._extract_patches(x_seq)
         base = self.base_projection(patches)
         
-        if self.ablation_mode == "observation_only":
+        if self.ablation_mode in ("observation_only", "wo_jet"):
             return base
             
         phi, psi_center, psi_scale = self._build_gaussian_jet(
@@ -120,17 +120,20 @@ class GaussianJetProjection(nn.Module):
         )
         
         q0 = torch.einsum("npl,kl->npk", patches, phi)
-        q1 = torch.einsum("npl,kl->npk", patches, psi_center)
-        
-        q_affine = q0 + delta * q1
 
-        if use_scale_jet and rho is not None and psi_scale is not None:
-            q2 = torch.einsum("npl,kl->npk", patches, psi_scale)
-            if rho.ndim == 2:
-                rho_expanded = rho.unsqueeze(-1)
-            else:
-                rho_expanded = rho
-            q_affine = q_affine + rho_expanded * q2
+        if self.ablation_mode == "wo_ajc":
+            q_affine = q0
+        else:
+            q1 = torch.einsum("npl,kl->npk", patches, psi_center)
+            q_affine = q0 + delta * q1
+
+            if use_scale_jet and rho is not None and psi_scale is not None:
+                q2 = torch.einsum("npl,kl->npk", patches, psi_scale)
+                if rho.ndim == 2:
+                    rho_expanded = rho.unsqueeze(-1)
+                else:
+                    rho_expanded = rho
+                q_affine = q_affine + rho_expanded * q2
 
         jet = self.gaussian_up(q_affine)
         

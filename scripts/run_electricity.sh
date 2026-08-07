@@ -5,7 +5,9 @@
 #                 bash scripts/run_electricity.sh --ablation_mode observation_only
 
 train_epochs=30
+seq_len=512
 next_is_epochs=false
+next_is_seq_len=false
 filtered_args=()
 
 for arg in "$@"; do
@@ -16,6 +18,13 @@ for arg in "$@"; do
     next_is_epochs=true
   elif [[ "$arg" == --train_epochs=* ]]; then
     train_epochs="${arg#*=}"
+  elif [ "$next_is_seq_len" = true ]; then
+    seq_len="$arg"
+    next_is_seq_len=false
+  elif [ "$arg" = "--seq_len" ]; then
+    next_is_seq_len=true
+  elif [[ "$arg" == --seq_len=* ]]; then
+    seq_len="${arg#*=}"
   else
     filtered_args+=("$arg")
   fi
@@ -31,7 +40,7 @@ python -u run.py \
   --model SplatTS \
   --data custom \
   --features M \
-  --seq_len 512 \
+  --seq_len "$seq_len" \
   --pred_len 96 \
   --enc_in 321 \
   --d_model 128 \
@@ -61,6 +70,7 @@ python -u run.py \
   --jet_score_temperature 0.01 \
   --jet_max_shift_samples 1 \
   --jet_derivative_mode exact \
+  --use_scale_jet \
   --des electricity_GaussianJet \
   "${filtered_args[@]}"
 
@@ -74,7 +84,7 @@ python -u run.py \
   --model SplatTS \
   --data custom \
   --features M \
-  --seq_len 512 \
+  --seq_len "$seq_len" \
   --pred_len 192 \
   --enc_in 321 \
   --d_model 128 \
@@ -104,6 +114,7 @@ python -u run.py \
   --jet_score_temperature 0.01 \
   --jet_max_shift_samples 1 \
   --jet_derivative_mode exact \
+  --use_scale_jet \
   --des electricity_GaussianJet \
   "${filtered_args[@]}"
 
@@ -117,7 +128,7 @@ python -u run.py \
   --model SplatTS \
   --data custom \
   --features M \
-  --seq_len 512 \
+  --seq_len "$seq_len" \
   --pred_len 336 \
   --enc_in 321 \
   --d_model 128 \
@@ -147,6 +158,7 @@ python -u run.py \
   --jet_score_temperature 0.01 \
   --jet_max_shift_samples 1 \
   --jet_derivative_mode exact \
+  --use_scale_jet \
   --des electricity_GaussianJet \
   "${filtered_args[@]}"
 
@@ -160,7 +172,7 @@ python -u run.py \
   --model SplatTS \
   --data custom \
   --features M \
-  --seq_len 512 \
+  --seq_len "$seq_len" \
   --pred_len 720 \
   --enc_in 321 \
   --d_model 128 \
@@ -190,5 +202,6 @@ python -u run.py \
   --jet_score_temperature 0.01 \
   --jet_max_shift_samples 1 \
   --jet_derivative_mode exact \
+  --use_scale_jet \
   --des electricity_GaussianJet \
   "${filtered_args[@]}"

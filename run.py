@@ -84,8 +84,10 @@ if __name__ == "__main__":
             "none",
             "gaussian_only",
             "observation_only",
+            "wo_ajc",
+            "wo_jet",
         ],
-        help="Ablation mode for model components: gaussian_only or observation_only",
+        help="Ablation mode for model components: gaussian_only, observation_only, wo_ajc, or wo_jet",
     )
 
     # Gaussian Jet parameters

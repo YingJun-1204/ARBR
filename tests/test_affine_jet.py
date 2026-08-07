@@ -240,6 +240,70 @@ class TestAffineJet(unittest.TestCase):
             self.assertFalse(torch.isnan(out_zero).any())
             self.assertFalse(torch.isinf(out_zero).any())
 
+    def test_wo_ajc_ablation_mode(self):
+        """
+        Verify that wo_ajc ablation mode disables delta (translation shift) and rho (scale shift)
+        in GaussianJetProjection, rendering output invariant to delta and rho.
+        """
+        seq_len = 96
+        patch_len = 16
+        stride = 8
+        d_model = 64
+
+        jet = GaussianJetProjection(
+            seq_len=seq_len,
+            patch_len=patch_len,
+            stride=stride,
+            d_model=d_model,
+            num_implicit_gaussians=4,
+            ablation_mode="wo_ajc",
+        )
+        jet.eval()
+
+        x_seq = torch.randn(2, 4, seq_len)
+        patch_num = jet.patch_num
+        batch_channel = 2 * 4
+
+        delta_zero = torch.zeros(batch_channel, patch_num, 1)
+        delta_random = torch.randn(batch_channel, patch_num, 1)
+        rho_random = torch.randn(batch_channel, patch_num, 1)
+
+        out_zero = jet(x_seq, delta=delta_zero, use_scale_jet=True, rho=None)
+        out_shifts = jet(x_seq, delta=delta_random, use_scale_jet=True, rho=rho_random)
+
+        diff = torch.max(torch.abs(out_zero - out_shifts))
+        self.assertEqual(diff.item(), 0.0)
+
+    def test_wo_jet_ablation_mode(self):
+        """
+        Verify that wo_jet ablation mode removes all JET components in GaussianJetProjection,
+        returning pure Base Projection output (base_projection(patches)).
+        """
+        seq_len = 96
+        patch_len = 16
+        stride = 8
+        d_model = 64
+
+        jet = GaussianJetProjection(
+            seq_len=seq_len,
+            patch_len=patch_len,
+            stride=stride,
+            d_model=d_model,
+            num_implicit_gaussians=4,
+            ablation_mode="wo_jet",
+        )
+        jet.eval()
+
+        x_seq = torch.randn(2, 4, seq_len)
+        patches = jet._extract_patches(x_seq)
+        expected_base = jet.base_projection(patches)
+
+        delta_random = torch.randn(2 * 4, jet.patch_num, 1)
+        out_wo_jet = jet(x_seq, delta=delta_random)
+
+        diff = torch.max(torch.abs(expected_base - out_wo_jet))
+        self.assertEqual(diff.item(), 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
