@@ -8,7 +8,7 @@ class Exp_Basic(object):
         self.args = args
     
         self.model_dict = {
-            'SplatTS': ModelFactory
+            'ARBD': ModelFactory
         }
         
         self.device = self._acquire_device()

@@ -1,1 +1,0 @@
-python .\run_adaptive_tuning.py --batch_size 256 --batches 1 --trials_per_batch 90 --datasets etth1 etth2 --output_dir loss_jetV18_ablation --pred_len 96 192 336 720 --use_scale_jet 

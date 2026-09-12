@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch import optim
 import os
 import time
+import json
 import warnings
 import numpy as np
 
@@ -32,41 +33,18 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         return getattr(real_model, "splatting_residual", None)
 
     def _select_optimizer(self):
-        splatting_params = []
-        base_params = []
-
-        for name, param in self.model.named_parameters():
-            if "splatting_residual" in name:
-                splatting_params.append(param)
-            else:
-                base_params.append(param)
-
-        if len(splatting_params) > 0:
-            model_optim = optim.AdamW(
-                [
-                    {"params": base_params, "weight_decay": 1e-4},
-                    {"params": splatting_params, "weight_decay": self.args.gs_weight_decay},
-                ],
-                lr=self.args.learning_rate,
-            )
-            print(
-                "\t[Optimizer] Applied differentiated weight decay ({}) for splatting module".format(
-                    self.args.gs_weight_decay
-                )
-            )
-        else:
-            model_optim = optim.AdamW(
-                self.model.parameters(),
-                lr=self.args.learning_rate,
-                weight_decay=1e-4,
-            )
-        return model_optim
+        return optim.AdamW(
+            self.model.parameters(),
+            lr=self.args.learning_rate,
+            weight_decay=0.0,
+        )
 
     def _select_criterion(self):
         return nn.MSELoss()
 
-    def vali(self, vali_data, vali_loader, criterion):
+    def vali(self, vali_data, vali_loader, criterion, return_mae=False):
         total_loss = 0.0
+        total_mae = 0.0
         total_count = 0
         self.model.eval()
         with torch.no_grad():
@@ -84,13 +62,23 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 true = batch_y.detach().cpu()
                 loss = criterion(pred, true)
                 total_loss += loss.item() * pred.numel()
+                if return_mae:
+                    total_mae += torch.abs(pred - true).sum().item()
                 total_count += pred.numel()
 
         total_loss = total_loss / total_count if total_count else 0.0
+        total_mae = total_mae / total_count if total_count else 0.0
         self.model.train()
+        if return_mae:
+            return total_loss, total_mae
         return total_loss
 
     def train(self, setting):
+        if self.args.use_gpu and torch.cuda.is_available():
+            try:
+                torch.cuda.reset_peak_memory_stats(self.device)
+            except Exception:
+                pass
         train_data, train_loader = self._get_data(flag="train")
         vali_data, vali_loader = self._get_data(flag="val")
         test_data, test_loader = self._get_data(flag="test")
@@ -136,39 +124,10 @@ class Exp_Long_Term_Forecast(Exp_Basic):
                 batch_y = batch_y.float().to(self.device)
 
                 outputs = self.model(batch_x)
-
                 f_dim = -1 if self.args.features == "MS" else 0
                 outputs = outputs[:, -self.args.pred_len :, f_dim:]
                 batch_y = batch_y[:, -self.args.pred_len :, f_dim:].to(self.device)
-
                 loss = criterion(outputs, batch_y)
-
-                # --- Density Penalty Joint Loss Optimization ---
-                density_mode = getattr(self.args, "density_mode", "none")
-                if density_mode == "cas":
-                    real_model = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
-                    splatting_module = getattr(real_model, "splatting_residual", None)
-                    if splatting_module is not None and getattr(splatting_module, "last_gate_probs", None) is not None:
-                        num_gaussians = splatting_module.num_gaussians
-                        
-                        # 1. 计算 Sigmoid Warmup 因子 (在前几个 epoch 从 0 平滑且可导地增长到 1)
-                        import math
-                        e_mid = 5.0
-                        s = 1.2
-                        warmup_factor = 1.0 / (1.0 + math.exp(-(epoch - e_mid) / s))
-                        
-                        # 构建前低后高的非对称惩罚权重 (前3个核几近无损，后续单调递增)
-                        weights_list = [0.0] * min(3, num_gaussians)
-                        remaining = num_gaussians - len(weights_list)
-                        if remaining > 0:
-                            weights_list += torch.linspace(0.01, 0.2, remaining).tolist()
-                        lambda_weights = torch.tensor(weights_list, device=loss.device)
-                        
-                        gate_probs = splatting_module.last_gate_probs # (batch_channel, num_gaussians)
-                        loss_capacity = (gate_probs * lambda_weights.unsqueeze(0)).mean()
-                        loss = loss + (self.args.gs_lambda * warmup_factor) * loss_capacity
-                # ------------------------------------------------
-
 
                 train_loss.append(loss.item())
 
@@ -201,11 +160,11 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
                             w_grad_msg = "N/A"
                             splatting_module = self._get_splatting_module()
-                            if splatting_module is not None:
-                                generator_weight = splatting_module.generator[-1].weight
-                                if generator_weight.grad is not None:
-                                    w_grad_avg = generator_weight.grad.abs().mean().item()
-                                    w_grad_msg = f"GS_Generator: {w_grad_avg:.6f}"
+                            if splatting_module is not None and getattr(splatting_module, "gaussian_splatting", None) is not None:
+                                gs = splatting_module.gaussian_splatting
+                                geom_grad = gs.geometry_head.weight.grad.abs().mean().item() if gs.geometry_head.weight.grad is not None else 0.0
+                                val_grad = gs.value_head.weight.grad.abs().mean().item() if gs.value_head.weight.grad is not None else 0.0
+                                w_grad_msg = f"Geom: {geom_grad:.6f}, Val: {val_grad:.6f}"
 
                             print(
                                 "\t[Grad Probe] Head Grad Norm: {:.6f} | w_grad: {}".format(
@@ -221,22 +180,32 @@ class Exp_Long_Term_Forecast(Exp_Basic):
 
             print("Epoch: {} cost time: {}".format(epoch + 1, time.time() - epoch_time))
             train_loss = np.average(train_loss)
-            vali_loss = self.vali(vali_data, vali_loader, criterion)
-            test_loss = self.vali(test_data, test_loader, criterion)
-
-            # total_params = sum(p.numel() for p in self.model.parameters())
-            # # 统计可训练参数量
-            # trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)   
-            # print(total_params,trainable_params)
-            print(
-                "Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
-                    epoch + 1,
-                    train_steps,
-                    train_loss,
-                    vali_loss,
-                    test_loss,
+            print_mae = getattr(self.args, "print_mae", False)
+            if print_mae:
+                vali_loss, vali_mae = self.vali(vali_data, vali_loader, criterion, return_mae=True)
+                test_loss, test_mae = self.vali(test_data, test_loader, criterion, return_mae=True)
+                print(
+                    "Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f} Test MAE: {5:.7f}".format(
+                        epoch + 1,
+                        train_steps,
+                        train_loss,
+                        vali_loss,
+                        test_loss,
+                        test_mae,
+                    )
                 )
-            )
+            else:
+                vali_loss = self.vali(vali_data, vali_loader, criterion, return_mae=False)
+                test_loss = self.vali(test_data, test_loader, criterion, return_mae=False)
+                print(
+                    "Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Vali Loss: {3:.7f} Test Loss: {4:.7f}".format(
+                        epoch + 1,
+                        train_steps,
+                        train_loss,
+                        vali_loss,
+                        test_loss,
+                    )
+                )
 
             if vali_loss < best_val_loss:
                 best_val_loss = vali_loss
@@ -270,47 +239,26 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         test_data, test_loader = self._get_data(flag="test")
         if test:
             print("loading model")
-            self.model.load_state_dict(torch.load(os.path.join("./checkpoints/" + setting, "checkpoint.pth")))
-
-        splatting_module = self._get_splatting_module()
-        if splatting_module is not None:
-            splatting_module.collect_diagnostics = getattr(self.args, "diag", False)
-
+            checkpoint_path = os.path.join(
+                "./checkpoints/" + setting,
+                "checkpoint.pth",
+            )
+            self.model.load_state_dict(
+                torch.load(
+                    checkpoint_path,
+                    map_location=self.device,
+                    weights_only=True,
+                )
+            )
 
         preds = []
         trues = []
-
-
-        fusion_gate_means = []
-        fusion_gate_stds = []
-        fusion_gate_mins = []
-        fusion_gate_maxs = []
-        fusion_low_ratios = []
-        fusion_high_ratios = []
-        geom_uncertainty_means = []
-        geom_shift_ratio_means = []
-
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
                 outputs = self.model(batch_x)
-
-                splatting_module = self._get_splatting_module()
-                if splatting_module is not None and getattr(self.args, "diag", False):
-
-                    
-                    if getattr(splatting_module, "_last_fusion_gate_mean", None) is not None:
-                        fusion_gate_means.append(splatting_module._last_fusion_gate_mean)
-                        fusion_gate_stds.append(splatting_module._last_fusion_gate_std)
-                        fusion_gate_mins.append(splatting_module._last_fusion_gate_min)
-                        fusion_gate_maxs.append(splatting_module._last_fusion_gate_max)
-                        fusion_low_ratios.append(splatting_module._last_fusion_low_ratio)
-                        fusion_high_ratios.append(splatting_module._last_fusion_high_ratio)
-                        if getattr(splatting_module, "_last_geometry_uncertainty_mean", None) is not None:
-                            geom_uncertainty_means.append(splatting_module._last_geometry_uncertainty_mean)
-                            geom_shift_ratio_means.append(splatting_module._last_geometry_shift_ratio_mean)
 
                 f_dim = -1 if self.args.features == "MS" else 0
                 outputs = outputs[:, -self.args.pred_len :, :]
@@ -336,32 +284,111 @@ class Exp_Long_Term_Forecast(Exp_Basic):
         mae, mse, rmse, mape, mspe = metric(preds, trues)
         print("mse:{}, mae:{}".format(mse, mae))
 
+        with open("result_long_term_forecast.txt", "a") as result_file:
+            result_file.write(setting + "  \n")
+            result_file.write("mse:{}, mae:{}".format(mse, mae))
+            result_file.write("\n\n")
 
+        # ----------------------------------------------------------------------
+        # Measure efficiency metrics ONLY if explicitly enabled
+        # ----------------------------------------------------------------------
+        if getattr(self.args, "eval_efficiency", 0) == 1 or os.environ.get("EVAL_EFFICIENCY", "0") == "1":
+            dataset_name = self.args.data
+            if dataset_name == "custom":
+                dataset_name = os.path.splitext(os.path.basename(self.args.data_path))[0].capitalize()
+            name_map = {
+                "etth1": "ETTh1",
+                "etth2": "ETTh2",
+                "ettm1": "ETTm1",
+                "ettm2": "ETTm2",
+                "weather": "Weather",
+                "electricity": "Electricity",
+                "traffic": "Traffic",
+            }
+            norm_ds = name_map.get(dataset_name.lower(), dataset_name)
+            params_m = sum(p.numel() for p in self.model.parameters()) / 1e6
 
-        # Print Geometry-Conditioned Fusion Gate Diagnostics
-        if getattr(self.args, "diag", False) and len(fusion_gate_means) > 0:
-            print("=" * 50)
-            print("  [Geometry-Conditioned Fusion Gate Diagnostics on Test Set]  ")
-            print("-" * 50)
-            print(f"  Fusion Gate Mean    : {np.mean(fusion_gate_means):.6f}")
-            print(f"  Fusion Gate Std     : {np.mean(fusion_gate_stds):.6f}")
-            print(f"  Fusion Gate Min     : {np.min(fusion_gate_mins):.6f}")
-            print(f"  Fusion Gate Max     : {np.max(fusion_gate_maxs):.6f}")
-            print(f"  Fusion Low Ratio    : {np.mean(fusion_low_ratios):.2%}")
-            print(f"  Fusion High Ratio   : {np.mean(fusion_high_ratios):.2%}")
-            if len(geom_uncertainty_means) > 0:
-                print(f"  Geom Uncertainty Mn : {np.mean(geom_uncertainty_means):.6f}")
-                print(f"  Geom Shift Ratio Mn : {np.mean(geom_shift_ratio_means):.6f}")
-            print("=" * 50 + "\n")
+            real_model = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+            try:
+                from torch.utils.flop_counter import FlopCounterMode
+                sample_x = torch.randn(1, self.args.seq_len, self.args.enc_in, device=self.device)
+                with FlopCounterMode(display=False) as fc:
+                    real_model(sample_x)
+                flops_g = fc.get_total_flops() / 1e9
+            except Exception:
+                flops_g = 0.0
 
-        # -----------------------------
-        f = open("result_long_term_forecast.txt", "a")
-        f.write(setting + "  \n")
-        f.write("mse:{}, mae:{}".format(mse, mae))
-        f.write("\n\n")
-        f.close()
+            try:
+                if len(test_loader) > 0:
+                    timing_batch = next(iter(test_loader))[0].float().to(self.device)
+                else:
+                    timing_batch = torch.randn(self.args.batch_size, self.args.seq_len, self.args.enc_in, device=self.device)
+                real_model.eval()
+                with torch.no_grad():
+                    for _ in range(5):
+                        _ = real_model(timing_batch)
+                    if self.args.use_gpu and torch.cuda.is_available():
+                        torch.cuda.synchronize(self.device)
+                        s_evt = torch.cuda.Event(enable_timing=True)
+                        e_evt = torch.cuda.Event(enable_timing=True)
+                        num_timing_runs = 30
+                        s_evt.record()
+                        for _ in range(num_timing_runs):
+                            _ = real_model(timing_batch)
+                        e_evt.record()
+                        torch.cuda.synchronize(self.device)
+                        latency_ms = s_evt.elapsed_time(e_evt) / num_timing_runs
+                    else:
+                        t0 = time.time()
+                        num_timing_runs = 10
+                        for _ in range(num_timing_runs):
+                            _ = real_model(timing_batch)
+                        latency_ms = ((time.time() - t0) / num_timing_runs) * 1000.0
+            except Exception:
+                latency_ms = 0.0
 
-        if splatting_module is not None:
-            splatting_module.collect_diagnostics = False
+            if self.args.use_gpu and torch.cuda.is_available():
+                memory_g = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)
+            else:
+                memory_g = 0.0
+
+            print(
+                f"[Efficiency] Setting: {setting} | Horizon: {self.args.pred_len} | "
+                f"Params/M: {params_m:.4f} | FLOPS/G: {flops_g:.4f} | "
+                f"Latency/ms: {latency_ms:.4f} | Memory/G: {memory_g:.4f}"
+            )
+
+            eff_file = "result_efficiency.json"
+            all_eff = {}
+            if os.path.exists(eff_file):
+                try:
+                    with open(eff_file, "r", encoding="utf-8") as f:
+                        all_eff = json.load(f)
+                except Exception:
+                    all_eff = {}
+            ds_dict = all_eff.setdefault(norm_ds, {})
+            ds_dict[str(self.args.pred_len)] = {
+                "params_m": round(params_m, 4),
+                "flops_g": round(flops_g, 4),
+                "latency_ms": round(latency_ms, 4),
+                "memory_g": round(memory_g, 4),
+                "setting": setting,
+            }
+            try:
+                with open(eff_file, "w", encoding="utf-8") as f:
+                    json.dump(all_eff, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+
+            try:
+                with open("result_efficiency.txt", "a", encoding="utf-8") as f:
+                    f.write(f"{setting}\n")
+                    f.write(
+                        f"Horizon: {self.args.pred_len}, Params/M: {params_m:.4f}, "
+                        f"FLOPS/G: {flops_g:.4f}, Latency/ms: {latency_ms:.4f}, "
+                        f"Memory/G: {memory_g:.4f}\n\n"
+                    )
+            except Exception:
+                pass
 
         return

@@ -6,19 +6,22 @@ import numpy as np
 import torch
 
 from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
-from exp.exp_short_term_forecasting import Exp_Short_Term_Forecast
-from utils.variant_configs import apply_variant_configs
 
 
-if __name__ == "__main__":
-    fix_seed = 2021
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    torch.cuda.manual_seed(fix_seed)
-    torch.cuda.manual_seed_all(fix_seed)
-    np.random.seed(fix_seed)
-    
-    # 强制启用确定性算法以确保复现
+EXPERIMENT_SEEDS = (42, 2021, 2026)
+
+
+def set_global_seed(seed):
+    if seed not in EXPERIMENT_SEEDS:
+        raise ValueError(
+            f"seed must be one of {EXPERIMENT_SEEDS}, got {seed}"
+        )
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     try:
@@ -27,14 +30,14 @@ if __name__ == "__main__":
         pass
 
 
-
-    parser = argparse.ArgumentParser(description="Representation baseline forecasting")
+def get_parser():
+    parser = argparse.ArgumentParser(description="ARBD forecasting")
 
     # basic config
     parser.add_argument("--task_name", type=str, required=True, default="long_term_forecast")
     parser.add_argument("--is_training", type=int, required=True, default=1)
     parser.add_argument("--model_id", type=str, required=True, default="test")
-    parser.add_argument("--model", type=str, required=True, default="SplatTS")
+    parser.add_argument("--model", type=str, required=True, default="ARBD")
 
     # data loader
     parser.add_argument("--data", type=str, required=True, default="ETTh1")
@@ -57,128 +60,52 @@ if __name__ == "__main__":
     parser.add_argument("--activation", type=str, default="gelu")
     parser.add_argument("--output_attention", action="store_true")
 
-    # representation model
-    parser.add_argument("--representation", type=str, default="gs", choices=["gs", "patch_linear"])
+    # ARBD model
     parser.add_argument("--patch_len", type=int, default=24)
     parser.add_argument("--stride", type=int, default=12)
     parser.add_argument("--head_dropout", type=float, default=0.1)
-    parser.add_argument("--head_dropout_position", type=str, default="post", choices=["none", "pre", "post"])
+    parser.add_argument("--head_dropout_position", type=str, default="pre", choices=["none", "pre", "post"])
     parser.add_argument("--head_mode", type=str, default="linear")
     parser.add_argument("--debug_mode", action="store_true")
     parser.add_argument("--gs_dropout", type=float, default=0.3)
-    parser.add_argument("--gs_weight_decay", type=float, default=0.0001)
+    parser.add_argument("--gs_weight_decay", type=float, default=0.0)
 
-    parser.add_argument("--num_gaussians", type=int, default=8)
-    parser.add_argument("--density_mode", type=str, default="cas", choices=["none", "cas"])
-    parser.add_argument("--gs_lambda", type=float, default=0.0)
-    parser.add_argument("--use_occlusion", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--use_residual", action=argparse.BooleanOptionalAction, default=True, help="Use residual connection")
-    parser.add_argument("--gs_residual_weight", type=float, default=0.1, help="Gating weight multiplier for residual shortcut")
-    parser.add_argument("--k_base", type=int, default=-1, help="Manual k_base value for CAS gating (-1 means dynamic)")
-    parser.add_argument("--output_dir", type=str, default="loss_cas_simplify", help="Output directory for configurations and diagnostics")
     parser.add_argument(
-        "--ablation_mode",
-        type=str,
-        default="none",
-        choices=[
-            "none",
-            "gaussian_only",
-            "observation_only",
-            "wo_ajc",
-            "wo_jet",
-        ],
-        help="Ablation mode for model components: gaussian_only, observation_only, wo_ajc, or wo_jet",
-    )
-
-    # Gaussian Jet parameters
-    parser.add_argument("--num_implicit_gaussians", type=int, default=4)
-    parser.add_argument("--jet_max_shift_samples", type=float, default=1.0)
-    parser.add_argument("--jet_score_temperature", type=float, default=0.01)
-    parser.add_argument("--jet_density_tau", type=float, default=1.0)
-    parser.add_argument("--jet_detach_geometry", type=int, default=1)
-    parser.add_argument("--jet_scale_init", type=float, default=0.1)
-    parser.add_argument("--jet_sigma_init", type=float, default=0.2)
-    parser.add_argument(
-        "--jet_derivative_mode",
-        type=str,
-        default="exact",
-        choices=["exact", "centered_legacy"],
-        help=(
-            "Construction of the first-order Gaussian Jet basis. "
-            "'exact' uses the center derivative of the normalized "
-            "Gaussian basis; 'centered_legacy' reproduces the "
-            "previous derivative-inspired implementation."
-        ),
-    )
-
-    # Geometry Fusion parameters
-    parser.add_argument(
-        "--fusion_mode",
-        type=str,
-        default="geometry",
-        choices=["geometry"],
-    )
-    parser.add_argument(
-        "--fusion_hidden_dim",
+        "--num_gaussians",
         type=int,
-        default=16,
+        default=8,
+        help="Fixed number K of temporal Gaussian components",
     )
     parser.add_argument(
-        "--fusion_init",
-        type=float,
-        default=-1.0,
-        help=(
-            "Initial geometry-fusion weight. "
-            "A negative value inherits gs_residual_weight."
-        ),
-    )
-    parser.add_argument(
-        "--fusion_beta_max",
+        "--rho",
         type=float,
         default=0.5,
+        help="Temporal center adaptation bound scalar rho (default: 0.5)",
     )
     parser.add_argument(
-        "--fusion_detach_geometry",
-        type=int,
-        default=1,
-    )
-
-    # Scale-Aware Affine Gaussian Jet parameters
-    parser.add_argument(
-        "--use_scale_jet",
-        action="store_true",
-        default=False,
-        help="Enable Content-Geometry Translation-Scale Affine Gaussian Jet",
+        "--beta",
+        type=float,
+        default=0.5,
+        help="Temporal scale adaptation bound scalar beta (default: 0.5)",
     )
     parser.add_argument(
-        "--scale_cue_mode",
+        "--local_weight_max",
+        type=float,
+        default=0.75,
+        help="Upper bound of the local Linear correction",
+    )
+    parser.add_argument(
+        "--static_local_weight_init",
+        type=float,
+        default=0.5,
+        help="Initial dataset-shared Linear correction weight",
+    )
+    parser.add_argument(
+        "--phase",
         type=str,
-        default="hybrid",
-        choices=["field_only", "patch_only", "hybrid"],
-        help="Scale cue signal source",
-    )
-    parser.add_argument(
-        "--scale_cue_detach",
-        type=int,
-        default=1,
-        help="Stop-gradient from scale path to field geometry (1=detach, 0=allow gradient)",
-    )
-    parser.add_argument(
-        "--scale_boundary_attenuation",
-        type=int,
-        default=1,
-        help="Enable edge margin attenuation for field scale cue",
-    )
-    parser.add_argument("--scale_rho_max", type=float, default=0.25)
-    parser.add_argument("--scale_z_max", type=float, default=3.0)
-    parser.add_argument("--scale_gamma_field_init", type=float, default=0.05)
-    parser.add_argument("--scale_gamma_patch_init", type=float, default=0.05)
-    parser.add_argument("--scale_eps", type=float, default=1e-6)
-    parser.add_argument(
-        "--diag",
-        action="store_true",
-        default=False,
-        help="Enable and print diagnostics during testing",
+        default="1A",
+        choices=["0", "1A"],
+        help="Architecture Phase: '0' (unanchored baseline) or '1A' (non-symmetric anchors, bounded deformation)",
     )
 
     # optimization
@@ -200,7 +127,13 @@ if __name__ == "__main__":
 
     # augmentation
     parser.add_argument("--augmentation_ratio", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=2)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=2021,
+        choices=EXPERIMENT_SEEDS,
+        help="Global experiment seed (default: 2021)",
+    )
     parser.add_argument("--jitter", default=False, action="store_true")
     parser.add_argument("--scaling", default=False, action="store_true")
     parser.add_argument("--permutation", default=False, action="store_true")
@@ -217,13 +150,31 @@ if __name__ == "__main__":
     parser.add_argument("--discdtw", default=False, action="store_true")
     parser.add_argument("--discsdtw", default=False, action="store_true")
     parser.add_argument("--extra_tag", type=str, default="")
+    parser.add_argument(
+        "--print_mae",
+        action="store_true",
+        default=False,
+        help="Print MAE alongside MSE during epoch evaluation",
+    )
+    parser.add_argument(
+        "--eval_efficiency",
+        type=int,
+        default=0,
+        help="Evaluate model efficiency (Params, FLOPs, Latency, Memory) during test",
+    )
+    return parser
 
+
+parser = get_parser()
+
+if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
     if unknown:
         parser.error("Unrecognized arguments: " + " ".join(unknown))
-    args = apply_variant_configs(args)
-
-    print(f"Current representation: {args.representation}")
+    if args.num_gaussians <= 0:
+        parser.error("--num_gaussians must be positive")
+    set_global_seed(args.seed)
+    print(f"[Experiment Seed] {args.seed}")
     args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
 
     if args.use_gpu and args.use_multi_gpu:
@@ -232,12 +183,7 @@ if __name__ == "__main__":
         args.device_ids = [int(id_) for id_ in device_ids]
         args.gpu = args.device_ids[0]
 
-    if args.task_name == "long_term_forecast":
-        Exp = Exp_Long_Term_Forecast
-    elif args.task_name == "short_term_forecast":
-        Exp = Exp_Short_Term_Forecast
-    else:
-        Exp = Exp_Long_Term_Forecast
+    Exp = Exp_Long_Term_Forecast
 
     if args.is_training:
         for ii in range(args.itr):
