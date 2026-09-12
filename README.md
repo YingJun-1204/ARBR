@@ -125,5 +125,4 @@ bash ./scripts/traffic.sh      # Traffic
 │   └── weather.sh
 ├── requirements.txt                    # Minimal environment requirements (UTF-8)
 ├── run.py                              # Main entry point for training and testing
-└── .gitignore                          # Git ignore rules
 ```
